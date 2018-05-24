@@ -1,0 +1,9 @@
+Debug/
+ffmpeg/
+*.opensdf
+*.ilk
+*.pdb
+*.mp4
+*.aac
+*.264
+*.sdf
