@@ -25,12 +25,23 @@ public:
 	virtual bool xvideo(const std::string& path) = 0;	// 提取视频文件到指定路径
 	virtual bool xyuv(const std::string& path) = 0;		// 提取视频文件中的yuv
 
+
+	class EmediaException :public std::exception
+	{
+	public:
+		EmediaException(std::string s){ _s = s; };
+		virtual const std::string& what(){ return _s; };
+
+	private:
+		std::string _s;
+	};
+
 protected:
 	virtual bool __open__()=0;
 	
 public:
 	static std::shared_ptr<Emedia> generate(const std::string& path);
-	static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath);
+	//static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath);
 };
 
 #endif

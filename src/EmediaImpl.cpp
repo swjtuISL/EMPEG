@@ -34,16 +34,21 @@ bool EmediaImpl::__open__(){
 
 	const char *pathTemp = __filePath.c_str();
 	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
+
 	if (_flag != 0){
 		char buf[1024] = { 0 };		//存放错误信息
 		av_strerror(_flag, buf, sizeof(buf)-1);
-		cout << "open " << __filePath << " failed! :" << buf << endl;
-		return false;
+		//cout << "open " << __filePath << " failed! :" << buf << endl;
+		//return false;
+		throw EmediaException(buf);
 	}
 
+
+
 	if (avformat_find_stream_info(_formatCtx, 0) < 0){
-		cout<<"Failed to retrieve input stream information\n";
-		return false;
+		//cout<<"Failed to retrieve input stream information\n";
+		//return false;
+		throw EmediaException("find stream fail call avformat_find_stream_info");
 	}
 
 	//--找视频流、音频流标准
@@ -60,15 +65,17 @@ bool EmediaImpl::__open__(){
 
 			AVCodec *codec = avcodec_find_decoder(enc->codec_id);
 			if (!codec){
-				cout << "video code not find\n";
-				return false;
+				//cout << "video code not find\n";
+				//return false;
+				throw EmediaException("find decoder call avcodec_find_decoder");
 			}
 
 			int err = avcodec_open2(enc, codec, NULL);
 			if (err != 0){
 				char buf[1024] = { 0 };
 				av_strerror(err, buf, sizeof(buf));
-				cout << buf << endl;	return 0;
+				//cout << buf << endl;	return 0;
+				throw EmediaException(buf);
 			}
 			cout << "open codec success by call XFFmpeg::open function\n";
 
@@ -107,7 +114,6 @@ VideoType EmediaImpl::video_type(){
 
 bool EmediaImpl::xvideo(const std::string& path){
 	AVOutputFormat  *ofmt_v = NULL;
-
 	AVFormatContext *ofmt_ctx_v = NULL;
 	AVPacket pkt;
 	int ret = 0, i = 0;
@@ -395,7 +401,6 @@ bool EmediaImpl::xaudio(const std::string& path){
 	int frame_index = 0;
 
 	//Output---ofmt_ctx_v存输出文件格式
-
 	const char* out_filename_a = path.c_str();
 
 	avformat_alloc_output_context2(&ofmt_ctx_a, NULL, NULL, out_filename_a);
@@ -506,7 +511,7 @@ end:
 }
 
 bool EmediaImpl::_read_frame(AVPacket& pkt){	
-	char errorbuf[1024] = { 0 };
+	char errorbuf[512] = { 0 };
 	int err = av_read_frame(_formatCtx, &pkt);
 	if (err != 0){
 		av_strerror(err, errorbuf, sizeof(errorbuf));

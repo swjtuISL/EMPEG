@@ -7,6 +7,8 @@
 
 #include "Emedia.h"
 #include<hash_map>
+#include<exception>
+
 extern "C"{
 #include"libavformat/avformat.h"
 #include"libavcodec/avcodec.h"
@@ -44,5 +46,6 @@ private:
 
 //    hash_map<AVCodecID, VideoType> _videoTypeMap;
 };
+
 
 #endif

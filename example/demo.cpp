@@ -6,14 +6,9 @@
 using namespace std;
 
 int main(){
-	shared_ptr<Emedia> media = Emedia::generate("video_2018.mp4");	//Wildlife
 
-	/*cout << media->where() << endl;		
-	cout << media->high() << endl;
-	cout << media->width() << endl;
-	cout << media->frames() << endl;
-	cout << media->fps() << endl;*/
-	
+	shared_ptr<Emedia> media = Emedia::generate("video_2s018.mp4");	//Wildlife
+	if (media == NULL)	return 1;
 	/*const std::string& videoPath ="video.h264" ;
 	const std::string& audioPath="audio.aac";
 	bool ret = media->demuxer(videoPath, audioPath);*/
@@ -27,4 +22,6 @@ int main(){
 	//media->combine(videoPath, audioPath, mediaPath);
 	cin.get();
 	cout << "done!" << endl;
+
+	return 0;
 }
