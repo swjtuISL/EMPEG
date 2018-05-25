@@ -18,8 +18,15 @@ int main(){
 	string videoPath = "video_2018_3.h264"; string audioPath = "Run.mp3";
 	string mediaPath = "aaaaa.mp4";
 
-	media->xaudio("audio.aac");
-	//media->combine(videoPath, audioPath, mediaPath);
+	//media->xaudio("audio.aac");
+
+	try{
+		media->combine(videoPath, audioPath, mediaPath);
+	}
+	catch (...){
+		//--
+		cout << "error by call combin\n";
+	}
 	cin.get();
 	cout << "done!" << endl;
 

@@ -41,7 +41,7 @@ protected:
 	
 public:
 	static std::shared_ptr<Emedia> generate(const std::string& path);
-	//static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath);
+	static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath);
 };
 
 #endif
