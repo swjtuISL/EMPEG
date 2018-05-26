@@ -12,7 +12,7 @@ using namespace std;
 #pragma comment(lib, "avutil.lib")
 
 EmediaImpl::EmediaImpl(const std::string& path){
-	__filePath = path;
+	_filePath = path;
 	_videoStream = -1;
 	_audioStream = -1;
 	_flag = -1;
@@ -32,13 +32,13 @@ bool EmediaImpl::_open_(){
 	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //设置rtsp流已tcp协议打开
 	av_dict_set(&opts, "max_delay", "500", 0);		//网络延时时间
 
-	const char *pathTemp = __filePath.c_str();
+	const char *pathTemp = _filePath.c_str();
 	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
 
 	if (_flag != 0){
 		char buf[1024] = { 0 };		//存放错误信息
 		av_strerror(_flag, buf, sizeof(buf)-1);
-		//cout << "open " << __filePath << " failed! :" << buf << endl;
+		//cout << "open " << _filePath << " failed! :" << buf << endl;
 		//return false;
 		throw EmediaException(buf);
 	}
@@ -80,7 +80,6 @@ bool EmediaImpl::_open_(){
 
 
 void EmediaImpl::func1(){
-	int ret = -1;
 	AVFormatContext *ofmt_ctx;
 	AVStream *in_stream = _formatCtx->streams[_videoStream];
 	AVStream *out_stream = NULL;
@@ -93,53 +92,52 @@ void EmediaImpl::func1(){
 
 	if (!out_stream) {
 		printf("Failed allocating output stream\n");
-		ret = AVERROR_UNKNOWN;
-		goto end;
+		_ret = AVERROR_UNKNOWN;
+		//goto end;
+		throw;
 	}
 	//Copy the settings of AVCodecContext
 	if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
 		printf("Failed to copy context from input to output stream codec context\n");
-		goto end;
+		//goto end;
+		throw;
 	}
 	out_stream->codec->codec_tag = 0;
-
 	if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
 		out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
 }
-bool EmediaImpl::xvideo(const std::string& path){
-	AVOutputFormat  *ofmt_v = NULL;
-	
-	AVPacket pkt;
-	int ret = 0, i = 0;
-	int frame_index = 0;
 
+bool EmediaImpl::xvideo(const std::string& path){
+	AVPacket pkt;
+	int i = 0;
+	int frame_index = 0;								//读取的packet个数
 	//Output---ofmt_ctx_v存输出文件格式
 	const char* out_filename_v = path.c_str();
 
-	avformat_alloc_output_context2(&ofmt_ctx_v, NULL, NULL, out_filename_v);
-	if (!ofmt_ctx_v) {
+	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);
+	if (!_ofmt_ctx_v) {
 		printf("Could not create output context\n");
-		ret = AVERROR_UNKNOWN;
-		goto end;
+		_ret = AVERROR_UNKNOWN;
+		//goto end;
+		throw std::string("ssdas");
 	}
-	ofmt_v = ofmt_ctx_v->oformat;
+	_ofmt_v = _ofmt_ctx_v->oformat;
 
 	//--------------------------------------------------------------------	
 	func1();
 
 	//Open output file
-	if (!(ofmt_v->flags & AVFMT_NOFILE)) {
-		if (avio_open(&ofmt_ctx_v->pb, out_filename_v, AVIO_FLAG_WRITE) < 0) {
+	if (!(_ofmt_v->flags & AVFMT_NOFILE)) {
+		if (avio_open(&_ofmt_ctx_v->pb, out_filename_v, AVIO_FLAG_WRITE) < 0) {
 			printf("Could not open output file '%s'", out_filename_v);
-			goto end;
+			throw;
 		}
 	}
 
 	//Write file header,有问题
-	if (avformat_write_header(ofmt_ctx_v, NULL) < 0) {
+	if (avformat_write_header(_ofmt_ctx_v, NULL) < 0) {
 		printf("Error occurred when opening video output file\n");
-		goto end;
+		throw;
 	}
 
 #if USE_H264BSF
@@ -156,8 +154,8 @@ bool EmediaImpl::xvideo(const std::string& path){
 		in_stream = _formatCtx->streams[pkt.stream_index];
 
 		if (pkt.stream_index == _videoStream){
-			out_stream = ofmt_ctx_v->streams[0];
-			ofmt_ctx = ofmt_ctx_v;
+			out_stream = _ofmt_ctx_v->streams[_videoStream];
+			ofmt_ctx   = _ofmt_ctx_v;
 			printf("Write Video Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
 #if USE_H264BSF
 			av_bitstream_filter_filter(h264bsfc, in_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
@@ -174,10 +172,11 @@ bool EmediaImpl::xvideo(const std::string& path){
 		//Write
 		if (av_interleaved_write_frame(ofmt_ctx, &pkt) < 0) {
 			printf("Error muxing packet\n");
-			return false;
+			//return false;
+			throw;
 		}
 
-		av_free_packet(&pkt);
+		av_packet_unref(&pkt);
 		frame_index++;
 	}
 
@@ -185,35 +184,10 @@ bool EmediaImpl::xvideo(const std::string& path){
 	av_bitstream_filter_close(h264bsfc);
 #endif
 	//Write file trailer
-	av_write_trailer(ofmt_ctx_v);
-end:
-	avformat_close_input(&_formatCtx);
-	/* close output */
-	if (ofmt_ctx_v && !(ofmt_v->flags & AVFMT_NOFILE))
-		avio_close(ofmt_ctx_v->pb);
+	av_write_trailer(_ofmt_ctx_v);
 
-	avformat_free_context(ofmt_ctx_v);
-
-	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
-		return false;
-	}
-	cout << "---------xvideo end-----\n";
 	return true;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //----提取音频和视频
 bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioPath){
@@ -371,13 +345,11 @@ end:
 }
 
 bool EmediaImpl::xaudio(const std::string& path){
-	AVOutputFormat *ofmt_a = NULL;
-
-	AVFormatContext *ofmt_ctx_a = NULL;
+	AVOutputFormat*  ofmt_a = NULL;
+	AVFormatContext* ofmt_ctx_a = NULL;
 	AVPacket pkt;
 	int ret = 0, i = 0;
-	int audioindex = -1;
-	int frame_index = 0;
+	int frame_index = 0;						//统计读取的packet的个数
 
 	//Output---ofmt_ctx_v存输出文件格式
 	const char* out_filename_a = path.c_str();
@@ -386,76 +358,65 @@ bool EmediaImpl::xaudio(const std::string& path){
 	if (!ofmt_ctx_a) {
 		printf("Could not create output context\n");
 		ret = AVERROR_UNKNOWN;
-		goto end;
+		//goto end;
+		throw;
 	}
 	ofmt_a = ofmt_ctx_a->oformat;
-
 	//--------------------------------------------------------------------	
-	for (i = 0; i < _formatCtx->nb_streams; i++)
-	{
-		//Create output AVStream according to input AVStream		
-		AVFormatContext *ofmt_ctx;
-		AVStream *in_stream = _formatCtx->streams[i];
-		AVStream *out_stream = NULL;
-		if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO){
-			continue;
-		}
-		else if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO){
-			audioindex = i;
-			out_stream = avformat_new_stream(ofmt_ctx_a, in_stream->codec->codec);
-			ofmt_ctx = ofmt_ctx_a;
-		}
-		else{
-			break;
-		}
 
-		if (!out_stream) {
-			printf("Failed allocating output stream\n");
-			ret = AVERROR_UNKNOWN;
-			goto end;
-		}
-		//Copy the settings of AVCodecContext
-		if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
-			printf("Failed to copy context from input to output stream codec context\n");
-			goto end;
-		}
-		out_stream->codec->codec_tag = 0;
+	//Create output AVStream according to input AVStream		
+	AVFormatContext *ofmt_ctx;
+	AVStream *in_stream = _formatCtx->streams[_audioStream];
+	AVStream *out_stream = NULL;
 
-		if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-			out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+	if (_formatCtx->streams[_audioStream]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO){
+		out_stream = avformat_new_stream(ofmt_ctx_a, in_stream->codec->codec);
+		ofmt_ctx = ofmt_ctx_a;
 	}
+
+	if (!out_stream) {
+		printf("Failed allocating output stream\n");
+		ret = AVERROR_UNKNOWN;
+		throw;
+	}
+	//Copy the settings of AVCodecContext
+	if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
+		printf("Failed to copy context from input to output stream codec context\n");
+		throw;
+	}
+	out_stream->codec->codec_tag = 0;
+
+	if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+		out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
 	if (!(ofmt_a->flags & AVFMT_NOFILE)) {
 		if (avio_open(&ofmt_ctx_a->pb, out_filename_a, AVIO_FLAG_WRITE) < 0) {
 			printf("Could not open output file '%s'", out_filename_a);
-			goto end;
+			throw;
 		}
 	}
 
 	//Write file header,有问题
 	if (avformat_write_header(ofmt_ctx_a, NULL) < 0) {
 		printf("Error occurred when opening audio output file\n");
-		goto end;
+		throw;
 	}
 
 	while (1)
 	{
-		AVFormatContext *ofmt_ctx;
-		AVStream *in_stream, *out_stream;
-
+		//AVFormatContext *ofmt_ctx;
+		//AVStream *in_stream, *out_stream;
 		if (av_read_frame(_formatCtx, &pkt) < 0)
 			break;
 		in_stream = _formatCtx->streams[pkt.stream_index];
 
-
-		if (pkt.stream_index == audioindex){
-			out_stream = ofmt_ctx_a->streams[0];
+		if (pkt.stream_index == _audioStream){
+			out_stream = ofmt_ctx_a->streams[_audioStream];
 			ofmt_ctx = ofmt_ctx_a;
 			printf("Write Audio Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
 		}
-		else{
-			continue;
-		}
+		else continue;
+
 		//Convert PTS/DTS
 		pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
 		pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
@@ -465,7 +426,8 @@ bool EmediaImpl::xaudio(const std::string& path){
 		//Write
 		if (av_interleaved_write_frame(ofmt_ctx, &pkt) < 0) {
 			printf("Error muxing packet\n");
-			break;
+			//break;
+			throw;
 		}
 
 		av_free_packet(&pkt);
@@ -473,9 +435,14 @@ bool EmediaImpl::xaudio(const std::string& path){
 	}
 
 	av_write_trailer(ofmt_ctx_a);
-end:
-	avformat_close_input(&_formatCtx);
+
+	//avformat_close_input(&_formatCtx);
 	/* close output */
+
+	try{}
+	catch (...){
+		cout << "error by call xaudio\n";
+	}
 	if (ofmt_ctx_a && !(ofmt_a->flags & AVFMT_NOFILE))
 		avio_close(ofmt_ctx_a->pb);
 
@@ -502,6 +469,7 @@ bool EmediaImpl::_read_frame(AVPacket& pkt){
 
 //----解码一个packet
 bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){
+	_formatCtx->streams[pkt->stream_index]->codecpar;
 	int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//涉及解码器
 	if (re != 0){
 		//cout << "error in avcodec_send_packet\n";
@@ -576,7 +544,18 @@ bool EmediaImpl::xyuv(const std::string& path){
 }
 
 
+EmediaImpl::~EmediaImpl(){
+	avformat_close_input(&_formatCtx);
+	/* close output */
+	if (_ofmt_ctx_v && !(_ofmt_v->flags & AVFMT_NOFILE))
+		avio_close(_ofmt_ctx_v->pb);
+	avformat_free_context(_ofmt_ctx_v);
 
+	if (_ret < 0 && _ret != AVERROR_EOF) {
+		printf("Error occurred.\n");
+	}
+	cout << "---------xvideo end-----\n";
+}
 
 
 
@@ -596,7 +575,7 @@ bool EmediaImpl::xyuv(const std::string& path){
 
 // 只读函数
 const string& EmediaImpl::where(){
-	return __filePath;
+	return _filePath;
 }
 
 int EmediaImpl::high(){

@@ -36,6 +36,14 @@ static bool combine(const std::string& videoPath, const std::string& audioPath, 
 */
 static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
 {
+	Muxer muxer;
+	try{
+		muxer.combineVideoAudio();
+	}
+	catch (...){
+		//
+		throw;
+	}
 	return 0;
 }
 
@@ -92,24 +100,25 @@ bool Muxer::combineVideoAudio(){
 	try{
 		openInit();	//Input  
 	}
-	catch (EmediaException){
-		EmideaClose(); throw ret;
+	catch (...){
+		throw;
 	}
 
 	//Output  
 	avformat_alloc_output_context2(&_ofmt_ctx, NULL, NULL, out_filename);
 	if (!_ofmt_ctx) {
-		printf("Could not create output context\n");
+		//printf("Could not create output context\n");
 		ret = AVERROR_UNKNOWN;
-		EmideaClose(); throw ret;
+		EmideaClose(); 
+		throw EmediaException("Could not create output context");
 	}
 	_ofmt = _ofmt_ctx->oformat;
 
 	try{
 		findStream();
 	}
-	catch (EmediaException){
-		EmideaClose(); throw 1;
+	catch (...){
+		throw;
 	}
 
 	//Open output file  
@@ -121,8 +130,8 @@ bool Muxer::combineVideoAudio(){
 			}
 		}
 	}
-	catch (EmediaException){
-		EmideaClose(); return 1;
+	catch (...){
+		throw;
 	}
 
 	//Write file header  
@@ -133,16 +142,16 @@ bool Muxer::combineVideoAudio(){
 			throw  EmediaException("Error occurred when opening output file");
 		}
 	}
-	catch ( EmediaException){
-		EmideaClose(); return 1;
+	catch (...){
+		throw;
 	}
 
 
 	try{
 		writeFream(cur_pts_v, cur_pts_a);
 	}
-	catch (EmediaException){
-		throw  EmediaException("error by call combine");
+	catch (...){
+		throw;
 	}
 	//Write file trailer  
 	av_write_trailer(_ofmt_ctx);

@@ -20,6 +20,7 @@ extern "C"{
 
 class EmediaImpl : public Emedia{
 public:
+	~EmediaImpl();
 	EmediaImpl(const std::string& path);
 	const std::string& where() override;	
 	int high() override;
@@ -29,9 +30,9 @@ public:
 	VideoType video_type() override;
 
 	bool demuxer(const std::string& videoPath, const std::string& audioPath);
-	bool xaudio(const std::string& path) override;
-	bool xvideo(const std::string& path) override;
-	bool xyuv(const std::string& path) override;
+	bool xaudio (const std::string& path) override;
+	bool xvideo (const std::string& path) override;
+	bool xyuv   (const std::string& path) override;
 	//bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath) override;
 protected:
 	bool _open_() override;
@@ -41,15 +42,15 @@ protected:
 	void func1();
 	//bool _yuv_rgb();
 private:
-	std::string __filePath;
+	std::string _filePath;                            //源文件
 
-	AVFormatContext* _formatCtx = NULL;
-	AVFormatContext* _ofmt_ctx_v = NULL;
-
+	AVFormatContext* _formatCtx = NULL;               //源文件格式
+	AVFormatContext* _ofmt_ctx_v = NULL;              //输出视频格式
+	AVOutputFormat*  _ofmt_v = NULL;
 	int _videoStream; 
-	int _audioStream;		//音视频索引，读取时区分音视频
+	int _audioStream;								 //音视频索引，读取时区分音视频
 	int _flag;
-
+	int _ret = 0;
 //    hash_map<AVCodecID, VideoType> _videoTypeMap;
 };
 
