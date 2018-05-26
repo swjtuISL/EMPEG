@@ -8,7 +8,7 @@ shared_ptr<Emedia> Emedia::generate(const string& path){
 	shared_ptr<Emedia> ptr = shared_ptr<Emedia>(new EmediaImpl(path));
 
 	try{
-		ptr->__open__();
+		ptr->_open_();
 	}
 	catch (EmediaException& reson){
 		cout << reson.what() << endl;
@@ -25,15 +25,28 @@ static void getFileType(string& filename){
 	string fileType(filename.substr(loc + 1));
 }
 
-//--指针处理
-static void EmideaClose(AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a, AVFormatContext* ofmt_ctx, AVOutputFormat* ofmt)
+//--合成音频、视频
+/*
+static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
 {
-	avformat_close_input(&ifmt_ctx_v);
-	avformat_close_input(&ifmt_ctx_a);
+	Muxer muxer(videoPath, audioPath, mediaPath);
+	muxer.combineVideoAudio();
+	return 0;
+}
+*/
+static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
+{
+	return 0;
+}
+
+//--指针处理
+void Muxer::EmideaClose(){
+	avformat_close_input(&_ifmt_ctx_v);
+	avformat_close_input(&_ifmt_ctx_a);
 	/* close output */
-	if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
-		avio_close(ofmt_ctx->pb);
-	avformat_free_context(ofmt_ctx);
+	if (_ofmt_ctx && !(_ofmt->flags & AVFMT_NOFILE))
+		avio_close(_ofmt_ctx->pb);
+	avformat_free_context(_ofmt_ctx);
 	int ret = -1;
 	if (ret < 0 && ret != AVERROR_EOF) {
 		printf("Error occurred.\n");
@@ -41,82 +54,187 @@ static void EmideaClose(AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a
 	}
 }
 
-static void openInit(const string& videoPath, const string& audioPath, AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a)
+
+Muxer::Muxer(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
+:_videoPath(videoPath), _audioPath(audioPath), _mediaPath(mediaPath)
 {
-	const char *in_filename_v = videoPath.c_str();
-	const char *in_filename_a = audioPath.c_str();
-
-
-	int ret = -1;
-	if ((ret = avformat_open_input(&ifmt_ctx_v, in_filename_v, 0, 0)) < 0) {
-		throw Emedia::EmediaException("Failed to retrieve input stream information");
-	}
-	if ((ret = avformat_find_stream_info(ifmt_ctx_v, 0)) < 0) {
-		throw Emedia::EmediaException("Failed to retrieve input stream information");
-	}
-
-	if ((ret = avformat_open_input(&ifmt_ctx_a, in_filename_a, 0, 0)) < 0) {
-		//cout << "Could not open input file.\n";
-		throw Emedia::EmediaException("Failed to retrieve input stream information");
-	}
-	if ((ret = avformat_find_stream_info(ifmt_ctx_a, 0)) < 0) {
-		//cout << "Failed to retrieve input stream information\n";
-		throw Emedia::EmediaException("Failed to retrieve input stream information");
-	}
-
-
-
+	_videoindex_v = -1;
+	_audioindex_a = -1;
+	_videoindex_out = -1;
+	_audioindex_out = -1;
+	frame_index = -1;
 }
 
-static void findStream(AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a, AVFormatContext* ofmt_ctx,
-	int& videoindex_v, int& audioindex_a, int& videoindex_out, int& audioindex_out)
+Muxer::Muxer()
+:_videoPath(nullptr), _audioPath(nullptr), _mediaPath(nullptr){
+	_videoindex_v = -1;
+	_audioindex_a = -1;
+	_videoindex_out = -1;
+	_audioindex_out = -1;
+	frame_index = -1;
+}
+
+Muxer::~Muxer(){
+	EmideaClose();
+}
+
+
+bool Muxer::combineVideoAudio(){
+	//AVPacket pkt;
+	int ret;
+	int64_t cur_pts_v = 0, cur_pts_a = 0;
+
+	const char *out_filename = _mediaPath.c_str();//Output file URL  
+
+	av_register_all();
+
+	//--指针处理
+	try{
+		openInit();	//Input  
+	}
+	catch (EmediaException){
+		EmideaClose(); throw ret;
+	}
+
+	//Output  
+	avformat_alloc_output_context2(&_ofmt_ctx, NULL, NULL, out_filename);
+	if (!_ofmt_ctx) {
+		printf("Could not create output context\n");
+		ret = AVERROR_UNKNOWN;
+		EmideaClose(); throw ret;
+	}
+	_ofmt = _ofmt_ctx->oformat;
+
+	try{
+		findStream();
+	}
+	catch (EmediaException){
+		EmideaClose(); throw 1;
+	}
+
+	//Open output file  
+	try{
+		if (!(_ofmt->flags & AVFMT_NOFILE)) {
+			if (avio_open(&_ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
+				throw EmediaException("Could not open output file");
+				//printf("Could not open output file '%s'", out_filename);
+			}
+		}
+	}
+	catch (EmediaException){
+		EmideaClose(); return 1;
+	}
+
+	//Write file header  
+	try{
+		if (avformat_write_header(_ofmt_ctx, NULL) < 0) {
+			//printf("Error occurred when opening output file\n");
+			//return 1;
+			throw  EmediaException("Error occurred when opening output file");
+		}
+	}
+	catch ( EmediaException){
+		EmideaClose(); return 1;
+	}
+
+
+	try{
+		writeFream(cur_pts_v, cur_pts_a);
+	}
+	catch (EmediaException){
+		throw  EmediaException("error by call combine");
+	}
+	//Write file trailer  
+	av_write_trailer(_ofmt_ctx);
+
+	/*
+	#if USE_H264BSF
+	av_bitstream_filter_close(h264bsfc);
+	#endif
+	#if USE_AACBSF
+	av_bitstream_filter_close(aacbsfc);
+	#endif
+	*/
+	//end:
+	EmideaClose();
+	cout << "----end---------";
+	return 0;
+}
+
+
+void Muxer::openInit()
+{
+	int ret = -1;
+	const char *in_filename_v = _videoPath.c_str();
+	const char *in_filename_a = _audioPath.c_str();
+
+	av_register_all();								//初始化封装		
+	if ((ret = avformat_open_input(&_ifmt_ctx_v, in_filename_v, 0, 0)) < 0) {
+		throw EmediaException("Failed to retrieve input stream information");
+	}
+	if ((ret = avformat_find_stream_info(_ifmt_ctx_v, 0)) < 0) {
+		throw EmediaException("Failed to retrieve input stream information");
+	}
+
+	if ((ret = avformat_open_input(&_ifmt_ctx_a, in_filename_a, 0, 0)) < 0) {
+		//cout << "Could not open input file.\n";
+		throw EmediaException("Failed to retrieve input stream information");
+	}
+	if ((ret = avformat_find_stream_info(_ifmt_ctx_a, 0)) < 0) {
+		//cout << "Failed to retrieve input stream information\n";
+		throw EmediaException("Failed to retrieve input stream information");
+	}
+}
+
+
+void Muxer::findStream()
 {
 	int i = 0; int ret = -1;
-	for (i = 0; i < ifmt_ctx_v->nb_streams; i++)
+	for (i = 0; i < _ifmt_ctx_v->nb_streams; i++)
 	{
 		//Create output AVStream according to input AVStream  
-		if (ifmt_ctx_v->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO){
-			AVStream *in_stream = ifmt_ctx_v->streams[i];
-			AVStream *out_stream = avformat_new_stream(ofmt_ctx, in_stream->codec->codec);
-			videoindex_v = i;
+		if (_ifmt_ctx_v->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO){
+			AVStream *in_stream = _ifmt_ctx_v->streams[i];
+			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
+			_videoindex_v = i;
 			if (!out_stream) {
-				printf("Failed allocating output stream\n");
+				//printf("Failed allocating output stream\n");
 				ret = AVERROR_UNKNOWN;
-				throw Emedia::EmediaException("Failed allocating output stream");
+				throw EmediaException("Failed allocating output stream");
 			}
-			videoindex_out = out_stream->index;
+			_videoindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
 			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
 				printf("Failed to copy context from input to output stream codec context\n");
-				throw Emedia::EmediaException("Failed to copy context from input to output stream codec context");
+				throw EmediaException("Failed to copy context from input to output stream codec context");
 			}
 			out_stream->codec->codec_tag = 0;
-			if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
 				out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 			break;
 		}
 	}
 
-	for (i = 0; i < ifmt_ctx_a->nb_streams; i++)
+	for (i = 0; i < _ifmt_ctx_a->nb_streams; i++)
 	{
 		//Create output AVStream according to input AVStream  
-		if (ifmt_ctx_a->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO){
-			AVStream *in_stream = ifmt_ctx_a->streams[i];
-			AVStream *out_stream = avformat_new_stream(ofmt_ctx, in_stream->codec->codec);
-			audioindex_a = i;
+		if (_ifmt_ctx_a->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO){
+			AVStream *in_stream = _ifmt_ctx_a->streams[i];
+			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
+			_audioindex_a = i;
 			if (!out_stream) {
 				printf("Failed allocating output stream\n");
 				ret = AVERROR_UNKNOWN;
-				throw Emedia::EmediaException("Failed allocating output stream");
+				throw EmediaException("Failed allocating output stream");
 			}
-			audioindex_out = out_stream->index;
+			_audioindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
 			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
-				printf("Failed to copy context from input to output stream codec context\n");
-				throw Emedia::EmediaException("Failed to copy context from input to output stream codec context");
+				//printf("Failed to copy context from input to output stream codec context\n");
+				throw EmediaException("Failed to copy context from input to output stream codec context");
 			}
 			out_stream->codec->codec_tag = 0;
-			if (ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
 				out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
 			break;
@@ -124,16 +242,8 @@ static void findStream(AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a,
 	}
 }
 
-
-static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* ifmt_ctx_v, AVFormatContext* ifmt_ctx_a, AVFormatContext* ofmt_ctx,
-	int& videoindex_v, int& audioindex_a, int& videoindex_out, int& audioindex_out, int& frame_index)
+void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 {
-
-	/*	int videoindex_v = -1, videoindex_out = -1;
-	int audioindex_a = -1, audioindex_out = -1;
-	int frame_index = 0;
-	int64_t cur_pts_v = 0, cur_pts_a = 0;
-	*/
 	//FIX  
 	AVPacket pkt;
 #if USE_H264BSF  
@@ -149,17 +259,18 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 		AVStream *in_stream, *out_stream;
 
 		//Get an AVPacket  
-		if (av_compare_ts(cur_pts_v, ifmt_ctx_v->streams[videoindex_v]->time_base, cur_pts_a, ifmt_ctx_a->streams[audioindex_a]->time_base) <= 0)
+		if (av_compare_ts(cur_pts_v, _ifmt_ctx_v->streams[_videoindex_v]->time_base, cur_pts_a, _ifmt_ctx_a->streams[_audioindex_a]->time_base) <= 0)
 		{
-			ifmt_ctx = ifmt_ctx_v;
-			stream_index = videoindex_out;
+			ifmt_ctx = _ifmt_ctx_v;
+			stream_index = _videoindex_out;
 
 			if (av_read_frame(ifmt_ctx, &pkt) >= 0){
-				do{
+				do
+				{
 					in_stream = ifmt_ctx->streams[pkt.stream_index];
-					out_stream = ofmt_ctx->streams[stream_index];
+					out_stream = _ofmt_ctx->streams[stream_index];
 
-					if (pkt.stream_index == videoindex_v){
+					if (pkt.stream_index == _videoindex_v){
 						//FIX：No PTS (Example: Raw H.264)  
 						//Simple Write PTS  
 						if (pkt.pts == AV_NOPTS_VALUE){
@@ -177,7 +288,8 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 						cur_pts_v = pkt.pts;
 						break;
 					}
-				} while (av_read_frame(ifmt_ctx, &pkt) >= 0);
+				} 
+				while (av_read_frame(ifmt_ctx, &pkt) >= 0);
 			}
 			else{
 				break;
@@ -185,14 +297,14 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 		}
 		else
 		{
-			ifmt_ctx = ifmt_ctx_a;
-			stream_index = audioindex_out;
+			ifmt_ctx = _ifmt_ctx_a;
+			stream_index = _audioindex_out;
 			if (av_read_frame(ifmt_ctx, &pkt) >= 0){
 				do{
 					in_stream = ifmt_ctx->streams[pkt.stream_index];
-					out_stream = ofmt_ctx->streams[stream_index];
+					out_stream = _ofmt_ctx->streams[stream_index];
 
-					if (pkt.stream_index == audioindex_a){
+					if (pkt.stream_index == _audioindex_a){
 
 						//FIX：No PTS  
 						//Simple Write PTS  
@@ -208,7 +320,6 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 							frame_index++;
 						}
 						cur_pts_a = pkt.pts;
-
 						break;
 					}
 				} while (av_read_frame(ifmt_ctx, &pkt) >= 0);
@@ -216,7 +327,6 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 			else{
 				break;
 			}
-
 		}
 
 		//FIX:Bitstream Filter  
@@ -227,7 +337,6 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 		av_bitstream_filter_filter(aacbsfc, out_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
 #endif  
 
-
 		//Convert PTS/DTS  
 		pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
 		pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
@@ -237,11 +346,11 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 
 		printf("Write 1 Packet. size:%5d\tpts:%lld\n", pkt.size, pkt.pts);
 		//Write  
-		if (av_interleaved_write_frame(ofmt_ctx, &pkt) < 0) {
+		if (av_interleaved_write_frame(_ofmt_ctx, &pkt) < 0) {
 			//printf("Error muxing packet\n");
 			//break;
 			av_free_packet(&pkt);
-			throw Emedia::EmediaException("Error muxing packet by call func3");
+			throw  EmediaException("Error muxing packet by call func3");
 		}
 		av_free_packet(&pkt);
 
@@ -253,100 +362,5 @@ static void writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a, AVFormatContext* 
 #if USE_AACBSF  
 	av_bitstream_filter_close(aacbsfc);
 #endif
-}
-
-
-bool Emedia::combine(const string& videoPath, const string& audioPath, const string& mediaPath){
-
-
-	AVOutputFormat *ofmt = NULL;
-	//Input AVFormatContext and Output AVFormatContext  
-	AVFormatContext *ifmt_ctx_v = NULL, *ifmt_ctx_a = NULL, *ofmt_ctx = NULL;
-	//AVPacket pkt;
-	int ret;
-	int videoindex_v = -1, videoindex_out = -1;
-	int audioindex_a = -1, audioindex_out = -1;
-	int frame_index = 0;
-	int64_t cur_pts_v = 0, cur_pts_a = 0;
-
-	const char *out_filename = mediaPath.c_str();//Output file URL  
-
-	av_register_all();
-
-	//--指针处理
-	try{
-		openInit(videoPath, audioPath, ifmt_ctx_v, ifmt_ctx_a);	//Input  
-	}
-	catch (Emedia::EmediaException){
-		EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt); throw ret;
-	}
-
-	//Output  
-	avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_filename);
-	if (!ofmt_ctx) {
-		printf("Could not create output context\n");
-		ret = AVERROR_UNKNOWN;
-		EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt); throw ret;
-	}
-	ofmt = ofmt_ctx->oformat;
-
-	try{
-		findStream(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, videoindex_v, audioindex_a, videoindex_out, audioindex_out);
-	}
-	catch (Emedia::EmediaException){
-		EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt); throw 1;
-	}
-
-	//Open output file  
-	try{
-		if (!(ofmt->flags & AVFMT_NOFILE)) {
-			if (avio_open(&ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
-				throw Emedia::EmediaException("Could not open output file");
-				//printf("Could not open output file '%s'", out_filename);
-			}
-		}
-	}
-	catch (Emedia::EmediaException){
-		EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt); return 1;
-	}
-
-	//Write file header  
-	try{
-		if (avformat_write_header(ofmt_ctx, NULL) < 0) {
-			//printf("Error occurred when opening output file\n");
-			//return 1;
-			throw Emedia::EmediaException("Error occurred when opening output file");
-		}
-	}
-	catch (Emedia::EmediaException){
-		EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt); return 1;
-	}
-
-
-	try{
-		writeFream(cur_pts_v, cur_pts_a, ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx,
-		videoindex_v, audioindex_a, videoindex_out, audioindex_out, frame_index);
-	}
-	catch (Emedia::EmediaException){
-		throw Emedia::EmediaException("error by call combine");
-	}
-
-
-	//Write file trailer  
-	av_write_trailer(ofmt_ctx);
-
-	/*
-	#if USE_H264BSF
-	av_bitstream_filter_close(h264bsfc);
-	#endif
-	#if USE_AACBSF
-	av_bitstream_filter_close(aacbsfc);
-	#endif
-	*/
-	//end:
-	EmideaClose(ifmt_ctx_v, ifmt_ctx_a, ofmt_ctx, ofmt);
-
-	cout << "----end---------";
-	return 0;
 }
 

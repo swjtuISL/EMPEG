@@ -6,8 +6,7 @@
 using namespace std;
 
 int main(){
-
-	shared_ptr<Emedia> media = Emedia::generate("video_2s018.mp4");	//Wildlife
+	shared_ptr<Emedia> media = Emedia::generate("video_2018.mp4");	//Wildlife
 	if (media == NULL)	return 1;
 	/*const std::string& videoPath ="video.h264" ;
 	const std::string& audioPath="audio.aac";
@@ -20,13 +19,11 @@ int main(){
 
 	//media->xaudio("audio.aac");
 
-	try{
-		media->combine(videoPath, audioPath, mediaPath);
-	}
-	catch (...){
-		//--
-		cout << "error by call combin\n";
-	}
+	//media->combine(videoPath, audioPath, mediaPath);
+	
+	cout << "error by call combin\n";
+
+
 	cin.get();
 	cout << "done!" << endl;
 
