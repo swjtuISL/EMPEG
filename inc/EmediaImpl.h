@@ -28,19 +28,24 @@ protected:
 	bool _read_frame(AVPacket& pkt);
 	bool _decode    (AVPacket* pkt, AVFrame& yuv);
 
-	void func1();
+	void creatStream();
 	//bool _yuv_rgb();
 private:
-	std::string _filePath;                            //源文件
-
-	AVFormatContext* _formatCtx = NULL;               //源文件格式
-	AVFormatContext* _ofmt_ctx_v = NULL;              //输出视频格式
-	AVOutputFormat*  _ofmt_v = NULL;
+	std::string _filePath;								 //源文件
+	std::string  _fileType;						 //文件类型(mp4..)
+	
+	AVFormatContext*   _formatCtx = nullptr;               //源文件格式
+	AVFormatContext*   _ofmt_ctx_v = nullptr;              //输出视频格式
+	AVFormatContext*   _ofmt_ctx_a = nullptr;              //输出音频格式
+	AVOutputFormat*    _ofmt_v = nullptr;
+	AVOutputFormat*    _ofmt_a = nullptr;
+	AVCodecContext*    _encodecCtx = nullptr;
+   
 	int _videoStream; 
 	int _audioStream;								 //音视频索引，读取时区分音视频
 	int _flag;
 	int _ret = 0;
-    //hash_map<AVCodecID, VideoType> _videoTypeMap;
+    //static hash_map<AVCodecID, VideoType> _videoTypeMap;
 };
 
 #endif

@@ -13,21 +13,23 @@ private:
 	std::string _w;
 	AVFormatContext* _avformatCtx = nullptr;
 };
-//--------解封装层异常---------------------------
+//--------封装层异常---------------------------
 class OpenException :public std::exception
 {
 public:
 	//OpenException(const std::string& w) :_where(w){};
-	OpenException(const std::string& w, std::string r="\0" ) :_where(w), _reson(r){};
+	OpenException(const std::string  w, std::string r="\0" ) :_where(w), _reson(r){};
 	OpenException(const std::string  w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	OpenException(const std::string  w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc), _where(w){};
+	OpenException(const std::string  w, AVCodec       *  avcodec)     :_avcodec(avcodec), _where(w){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
 private:
 	std::string _reson;
 	std::string _where;
 	AVFormatContext* _avformatCtx = nullptr;
-	AVCodecContext*  _avcodecCtc = nullptr;
+	AVCodecContext*  _avcodecCtc  = nullptr;
+	AVCodec*		 _avcodec     = nullptr;
 };
 
 //-------数据流层异常--------------------------
@@ -36,7 +38,8 @@ class StreamExceptionPara :public std::exception
 public:
 	StreamExceptionPara(const std::string w, std::string r = "\0") :_reson(r), _where(w){};
 	StreamExceptionPara(const std::string w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
-	StreamExceptionPara(const std::string w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc),   _where(w){};
+	StreamExceptionPara(const std::string w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc)  ,   _where(w){};
+	StreamExceptionPara(const std::string w, AVStream*        avstream)    :_avstream(avstream)      , _where(w){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
 
@@ -44,7 +47,8 @@ private:
 	std::string _reson;
 	std::string _where;
 	AVFormatContext* _avformatCtx = nullptr;
-	AVCodecContext*  _avcodecCtc = nullptr;
+	AVCodecContext*  _avcodecCtc  = nullptr;
+	AVStream*		 _avstream    = nullptr;
 };
 
 //-------写数据异常--------------------------
@@ -70,7 +74,9 @@ private:
 class DecodeExceptionPara :public std::exception
 {
 public:
-	DecodeExceptionPara(const std::string w, std::string r = "\0") :_reson(r), _where(w){};
+	DecodeExceptionPara( std::string w, std::string r = "\0") :_reson(r), _where(w){};
+	DecodeExceptionPara(AVCodecContext*  avcodecCtc, AVPacket*	packet) :_avcodecCtc(avcodecCtc), _packet(packet){};
+	DecodeExceptionPara(AVCodecContext*  avcodecCtc, AVFrame*  frame)   :_avcodecCtc(avcodecCtc), _frame(frame){};
 	//DecodeExceptionPara(std::string w, std::string r = '\0') :_reson(r), _where(w){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
@@ -78,6 +84,9 @@ public:
 private:
 	std::string _reson;
 	std::string _where;
+	AVCodecContext*  _avcodecCtc;// = nullptr;
+	AVPacket*		 _packet;// = nullptr;
+	AVFrame*		 _frame;
 };
 
 //-------参数异常--------------------------

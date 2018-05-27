@@ -30,24 +30,24 @@ shared_ptr<Emedia> Emedia::generate(const string& path){
 
 
 //--合成音频、视频
-static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
-{
-	Muxer muxer(videoPath, audioPath, mediaPath);
-	muxer.combineVideoAudio();				//throw
-	return 0;
-}
+//static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
+//{
+//	Muxer muxer(videoPath, audioPath, mediaPath);
+//	muxer.combineVideoAudio();				//throw	
+//	return 0;
+//}
 
 //--指针处理
 void Muxer::EmideaClose(){
 	avformat_close_input(&_ifmt_ctx_v);
 	avformat_close_input(&_ifmt_ctx_a);
 	/* close output */
-	if (_ofmt_ctx && !(_ofmt->flags & AVFMT_NOFILE))
+	if ( _ofmt_ctx && !(_ofmt->flags & AVFMT_NOFILE))
 		avio_close(_ofmt_ctx->pb);
 	avformat_free_context(_ofmt_ctx);
 	int ret = -1;
 	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
+		std::cout<<"Error occurred.\n";
 		//return -1;
 	}
 }
@@ -79,7 +79,13 @@ Muxer::Muxer()
 }
 
 Muxer::~Muxer(){
-	EmideaClose();
+	//EmideaClose();
+	avformat_close_input(&_ifmt_ctx_v);
+	avformat_close_input(&_ifmt_ctx_a);
+	/* close output */
+	if (_ofmt_ctx && !(_ofmt->flags & AVFMT_NOFILE))
+		avio_close(_ofmt_ctx->pb);
+	avformat_free_context(_ofmt_ctx);
 }
 
 bool Muxer::combineVideoAudio(){
@@ -99,7 +105,7 @@ bool Muxer::combineVideoAudio(){
 	if (!_ofmt_ctx) {
 		//printf("Could not create output context\n");
 		ret = AVERROR_UNKNOWN;
-		EmideaClose();
+		//EmideaClose();
 		throw OpenException("Could not create output context");
 	}
 	_ofmt = _ofmt_ctx->oformat;
@@ -136,18 +142,19 @@ bool Muxer::combineVideoAudio(){
 	#endif
 	*/
 	//end:
-	EmideaClose();
+	//EmideaClose();
 	cout << "----end---------";
 	return 0;
 }
 
 void Muxer::openInit()
 {
+	
 	int ret = -1;
 	const char *in_filename_v = _videoPath.c_str();
 	const char *in_filename_a = _audioPath.c_str();
-
-	av_register_all();								//初始化封装		
+	
+	av_register_all();								//初始化封装
 	if ((ret = avformat_open_input(&_ifmt_ctx_v, in_filename_v, 0, 0)) < 0) {
 		char buf[512] = { 0 };						//存放错误内容
 		av_strerror(ret, buf, sizeof(buf)-1);
@@ -226,6 +233,12 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 {
 	//FIX  
 	AVPacket pkt;
+	/*
+	std::string fileType;
+	fileType = (_mediaPath.substr(_mediaPath.find(".") + 1));	//获取文件类型
+	if (fileType == "mp4" || fileType == "flv")
+		AVBitStreamFilterContext* h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
+	*/
 #if USE_H264BSF  
 	AVBitStreamFilterContext* h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
 #endif  
