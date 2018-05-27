@@ -5,15 +5,7 @@
 #include<hash_map>
 #include<exception>
 
-#ifndef _FFMPEG_H
-#define _FFMPEG_H
-extern "C"{
-#include"libavformat/avformat.h"
-#include"libavcodec/avcodec.h"
-#include<libswscale/swscale.h>
-#include"libavutil/imgutils.h"
-}
-#endif
+
 
 #define USE_H264BSF 1	//'1': Use H.264 Bitstream Filter   
 #define USE_AACBSF  0	//'1': Use AAC Bitstream Filter 
@@ -37,7 +29,7 @@ public:
 protected:
 	bool _open_() override;
 	bool _read_frame(AVPacket& pkt);
-	bool _decode(AVPacket* pkt, AVFrame& yuv);
+	bool _decode    (AVPacket* pkt, AVFrame& yuv);
 
 	void func1();
 	//bool _yuv_rgb();

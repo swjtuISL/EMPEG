@@ -1,15 +1,20 @@
 #include "EmediaImpl.h"
-
+#include"EmpegException.h"
 #include<iostream>
 #include<fstream>
 #include<hash_map>
 using namespace std;
 //--ffmpeg库和头文件
-#pragma comment(lib,"avformat.lib")
-#pragma comment(lib,"avutil.lib")
-#pragma comment(lib,"avcodec.lib")
-#pragma comment(lib,"swscale.lib")
-#pragma comment(lib, "avutil.lib")
+#ifndef _FFMPEG_H
+#define _FFMPEG_H
+extern "C"{
+#include"libavformat/avformat.h"
+#include"libavcodec/avcodec.h"
+#include<libswscale/swscale.h>
+#include"libavutil/imgutils.h"
+}
+#endif
+
 
 EmediaImpl::EmediaImpl(const std::string& path){
 	_filePath = path;
@@ -38,15 +43,13 @@ bool EmediaImpl::_open_(){
 	if (_flag != 0){
 		char buf[1024] = { 0 };		//存放错误信息
 		av_strerror(_flag, buf, sizeof(buf)-1);
-		//cout << "open " << _filePath << " failed! :" << buf << endl;
-		//return false;
-		throw EmediaException(buf);
+		throw OpenException("EmediaImpl::_open_()->avformat_open_input",buf);
 	}
 
 	if (avformat_find_stream_info(_formatCtx, 0) < 0){
 		//cout<<"Failed to retrieve input stream information\n";
 		//return false;
-		throw EmediaException("find stream fail call avformat_find_stream_info");
+		throw OpenException("find stream fail call avformat_find_stream_info");
 	}
 
 	//--找视频流、音频流标准
@@ -63,14 +66,14 @@ bool EmediaImpl::_open_(){
 			if (!codec){
 				//cout << "video code not find\n";
 				//return false;
-				throw EmediaException("find decoder call avcodec_find_decoder");
+				throw OpenException("find decoder call avcodec_find_decoder");
 			}
 			int err = avcodec_open2(enc, codec, NULL);
 			if (err != 0){
 				char buf[1024] = { 0 };
 				av_strerror(err, buf, sizeof(buf));
 				//cout << buf << endl;	return 0;
-				throw EmediaException(buf);
+				throw OpenException(buf);
 			}
 			cout << "open codec success by call XFFmpeg::open function\n";
 		}
@@ -85,7 +88,7 @@ void EmediaImpl::func1(){
 	AVStream *out_stream = NULL;
 
 	if (_formatCtx->streams[_videoStream]->codecpar->codec_type != AVMEDIA_TYPE_VIDEO){
-		throw EmediaException("error _videoStream!=AVMEDIA_TYPE_VIDEO by  call xvideo in ");
+		throw OpenException("error _videoStream!=AVMEDIA_TYPE_VIDEO by  call xvideo in ");
 	}
 	out_stream = avformat_new_stream(_ofmt_ctx_v, in_stream->codec->codec);
 	ofmt_ctx = _ofmt_ctx_v;
@@ -185,7 +188,6 @@ bool EmediaImpl::xvideo(const std::string& path){
 #endif
 	//Write file trailer
 	av_write_trailer(_ofmt_ctx_v);
-
 	return true;
 }
 
@@ -314,7 +316,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 			break;
 		}
 		//printf("Write %8d frames to output file\n",frame_index);
-		av_free_packet(&pkt);
+		av_packet_unref(&pkt);
 		frame_index++;
 	}
 
@@ -430,7 +432,7 @@ bool EmediaImpl::xaudio(const std::string& path){
 			throw;
 		}
 
-		av_free_packet(&pkt);
+		av_packet_unref(&pkt);
 		frame_index++;
 	}
 
@@ -461,7 +463,7 @@ bool EmediaImpl::_read_frame(AVPacket& pkt){
 	int err = av_read_frame(_formatCtx, &pkt);
 	if (err != 0){
 		av_strerror(err, errorbuf, sizeof(errorbuf));
-		throw EmediaException(errorbuf);
+		throw OpenException(errorbuf);
 	}
 	//memset(pkt, 0, sizeof(AVPacket));
 	return true;
@@ -474,13 +476,13 @@ bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){
 	if (re != 0){
 		//cout << "error in avcodec_send_packet\n";
 		//return false;
-		throw EmediaException("error in avcodec_send_packet");
+		throw OpenException("error in avcodec_send_packet");
 	}
 	re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, &yuv);
 	if (re != 0){
 		//cout << "error in avcodec_receive_frame\n";
 		//return false;
-		throw EmediaException("error in avcodec_send_packet");
+		throw OpenException("error in avcodec_send_packet");
 	}
 	return true;
 }

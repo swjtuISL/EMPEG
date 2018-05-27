@@ -126,6 +126,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\inc\Emedia.h" />
     <ClInclude Include="..\..\inc\EmediaImpl.h" />
+    <ClInclude Include="..\..\inc\EmpegException.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -22,6 +22,9 @@
     <Filter Include="头文件\empeg">
       <UniqueIdentifier>{4c4acef8-fcf5-4e24-9ea6-f1f9da902d56}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\exception">
+      <UniqueIdentifier>{c3c857ae-9bd3-47f7-9490-bd89e1d063c3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\example\demo.cpp">
@@ -40,6 +43,9 @@
     </ClInclude>
     <ClInclude Include="..\..\inc\EmediaImpl.h">
       <Filter>头文件\empeg</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\inc\EmpegException.h">
+      <Filter>头文件\exception</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

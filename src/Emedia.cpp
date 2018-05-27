@@ -1,49 +1,38 @@
 #include"Emedia.h"
 #include"EmediaImpl.h"
+#include"EmpegException.h"
 #include<iostream>
 using namespace std;
 
-shared_ptr<Emedia> Emedia::generate(const string& path){
-	//EmediaImpl *p = new EmediaImpl(path);
-	shared_ptr<Emedia> ptr = shared_ptr<Emedia>(new EmediaImpl(path));
+#ifndef _FFMPEG_H
+#define _FFMPEG_H
+extern "C"{
+#include"libavformat/avformat.h"
+#include"libavcodec/avcodec.h"
+#include<libswscale/swscale.h>
+#include"libavutil/imgutils.h"
+}
+#endif
 
-	try{
-		ptr->_open_();
+shared_ptr<Emedia> Emedia::generate(const string& path){
+	std::string fileType;
+	getFileType(path, fileType);
+	
+	if (fileType != "mp4"){
+		std::cout << "fail\n";
+		throw ParamExceptionPara(path);
 	}
-	catch (EmediaException& reson){
-		cout << reson.what() << endl;
-		cin.get();
-		return NULL;
-		//---
-	}
+	shared_ptr<Emedia> ptr = shared_ptr<Emedia>(new EmediaImpl(path));	
+	ptr->_open_();			//throw
 	return  ptr;
 }
 
 
-static void getFileType(string& filename){
-	int loc = filename.find(".");
-	string fileType(filename.substr(loc + 1));
-}
-
 //--合成音频、视频
-/*
 static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
 {
 	Muxer muxer(videoPath, audioPath, mediaPath);
-	muxer.combineVideoAudio();
-	return 0;
-}
-*/
-static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
-{
-	Muxer muxer;
-	try{
-		muxer.combineVideoAudio();
-	}
-	catch (...){
-		//
-		throw;
-	}
+	muxer.combineVideoAudio();				//throw
 	return 0;
 }
 
@@ -62,10 +51,16 @@ void Muxer::EmideaClose(){
 	}
 }
 
-
 Muxer::Muxer(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
 :_videoPath(videoPath), _audioPath(audioPath), _mediaPath(mediaPath)
 {
+	av_register_all();								//初始化封装												
+	avformat_network_init();						//初始化网络库 （可以打开rtsp rtmp http 协议的流媒体视频）
+	avcodec_register_all();							//注册解码器
+	AVDictionary *opts = NULL;						//参数设置
+	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //设置rtsp流已tcp协议打开
+	av_dict_set(&opts, "max_delay", "500", 0);		//网络延时时间
+
 	_videoindex_v = -1;
 	_audioindex_a = -1;
 	_videoindex_out = -1;
@@ -86,7 +81,6 @@ Muxer::~Muxer(){
 	EmideaClose();
 }
 
-
 bool Muxer::combineVideoAudio(){
 	//AVPacket pkt;
 	int ret;
@@ -97,62 +91,38 @@ bool Muxer::combineVideoAudio(){
 	av_register_all();
 
 	//--指针处理
-	try{
-		openInit();	//Input  
-	}
-	catch (...){
-		throw;
-	}
+	openInit();	//Input					//throw
 
 	//Output  
 	avformat_alloc_output_context2(&_ofmt_ctx, NULL, NULL, out_filename);
 	if (!_ofmt_ctx) {
 		//printf("Could not create output context\n");
 		ret = AVERROR_UNKNOWN;
-		EmideaClose(); 
-		throw EmediaException("Could not create output context");
+		EmideaClose();
+		throw OpenException("Could not create output context");
 	}
 	_ofmt = _ofmt_ctx->oformat;
 
-	try{
-		findStream();
-	}
-	catch (...){
-		throw;
-	}
+	findStream();						//throw
 
 	//Open output file  
-	try{
-		if (!(_ofmt->flags & AVFMT_NOFILE)) {
-			if (avio_open(&_ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
-				throw EmediaException("Could not open output file");
-				//printf("Could not open output file '%s'", out_filename);
-			}
+
+	if (!(_ofmt->flags & AVFMT_NOFILE)) {
+		if (avio_open(&_ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
+			throw OpenException("Could not open output file");
+			//printf("Could not open output file '%s'", out_filename);
 		}
-	}
-	catch (...){
-		throw;
 	}
 
 	//Write file header  
-	try{
-		if (avformat_write_header(_ofmt_ctx, NULL) < 0) {
-			//printf("Error occurred when opening output file\n");
-			//return 1;
-			throw  EmediaException("Error occurred when opening output file");
-		}
-	}
-	catch (...){
-		throw;
+	if (avformat_write_header(_ofmt_ctx, NULL) < 0) {
+		//printf("Error occurred when opening output file\n");
+		//return 1;
+		throw  OpenException("Error occurred when opening output file");
 	}
 
+	writeFream(cur_pts_v, cur_pts_a);		//throw
 
-	try{
-		writeFream(cur_pts_v, cur_pts_a);
-	}
-	catch (...){
-		throw;
-	}
 	//Write file trailer  
 	av_write_trailer(_ofmt_ctx);
 
@@ -170,7 +140,6 @@ bool Muxer::combineVideoAudio(){
 	return 0;
 }
 
-
 void Muxer::openInit()
 {
 	int ret = -1;
@@ -179,22 +148,23 @@ void Muxer::openInit()
 
 	av_register_all();								//初始化封装		
 	if ((ret = avformat_open_input(&_ifmt_ctx_v, in_filename_v, 0, 0)) < 0) {
-		throw EmediaException("Failed to retrieve input stream information");
+		char buf[512] = { 0 };						//存放错误内容
+		av_strerror(ret, buf, sizeof(buf)-1);
+		throw OpenException("Muxer::openInit()->avformat_open_input",buf);
 	}
 	if ((ret = avformat_find_stream_info(_ifmt_ctx_v, 0)) < 0) {
-		throw EmediaException("Failed to retrieve input stream information");
+		throw OpenException("Muxer::openInit()->avformat_find_stream_info", _ifmt_ctx_v);
 	}
 
 	if ((ret = avformat_open_input(&_ifmt_ctx_a, in_filename_a, 0, 0)) < 0) {
-		//cout << "Could not open input file.\n";
-		throw EmediaException("Failed to retrieve input stream information");
+		char buf[512] = { 0 };						//存放错误内容
+		av_strerror(ret, buf, sizeof(buf)-1);
+		throw OpenException("Muxer::openInit()->avformat_open_input", buf);
 	}
 	if ((ret = avformat_find_stream_info(_ifmt_ctx_a, 0)) < 0) {
-		//cout << "Failed to retrieve input stream information\n";
-		throw EmediaException("Failed to retrieve input stream information");
+		throw OpenException("Muxer::openInit()->avformat_find_stream_info", _ifmt_ctx_a);
 	}
 }
-
 
 void Muxer::findStream()
 {
@@ -202,20 +172,19 @@ void Muxer::findStream()
 	for (i = 0; i < _ifmt_ctx_v->nb_streams; i++)
 	{
 		//Create output AVStream according to input AVStream  
-		if (_ifmt_ctx_v->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO){
+		if (_ifmt_ctx_v->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+		{
 			AVStream *in_stream = _ifmt_ctx_v->streams[i];
 			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
 			_videoindex_v = i;
-			if (!out_stream) {
-				//printf("Failed allocating output stream\n");
+			if (!out_stream) {				
 				ret = AVERROR_UNKNOWN;
-				throw EmediaException("Failed allocating output stream");
+				throw StreamExceptionPara("Muxer::findStream()->avformat_new_stream", _ofmt_ctx);
 			}
 			_videoindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
-			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
-				printf("Failed to copy context from input to output stream codec context\n");
-				throw EmediaException("Failed to copy context from input to output stream codec context");
+			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {		
+				throw StreamExceptionPara("Muxer::findStream()->avcodec_copy_context",in_stream->codec);
 			}
 			out_stream->codec->codec_tag = 0;
 			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -227,20 +196,21 @@ void Muxer::findStream()
 	for (i = 0; i < _ifmt_ctx_a->nb_streams; i++)
 	{
 		//Create output AVStream according to input AVStream  
-		if (_ifmt_ctx_a->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO){
+		if (_ifmt_ctx_a->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+		{
 			AVStream *in_stream = _ifmt_ctx_a->streams[i];
 			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
 			_audioindex_a = i;
 			if (!out_stream) {
 				printf("Failed allocating output stream\n");
 				ret = AVERROR_UNKNOWN;
-				throw EmediaException("Failed allocating output stream");
+				throw StreamExceptionPara("Muxer::findStream()->avformat_new_stream", _ofmt_ctx);
 			}
 			_audioindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
 			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
 				//printf("Failed to copy context from input to output stream codec context\n");
-				throw EmediaException("Failed to copy context from input to output stream codec context");
+				throw StreamExceptionPara("Muxer::findStream()->avcodec_copy_context", in_stream->codec);
 			}
 			out_stream->codec->codec_tag = 0;
 			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -273,15 +243,14 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 			ifmt_ctx = _ifmt_ctx_v;
 			stream_index = _videoindex_out;
 
-			if (av_read_frame(ifmt_ctx, &pkt) >= 0){
+			if (av_read_frame(ifmt_ctx, &pkt) >= 0)
+			{
 				do
 				{
 					in_stream = ifmt_ctx->streams[pkt.stream_index];
 					out_stream = _ofmt_ctx->streams[stream_index];
 
 					if (pkt.stream_index == _videoindex_v){
-						//FIX：No PTS (Example: Raw H.264)  
-						//Simple Write PTS  
 						if (pkt.pts == AV_NOPTS_VALUE){
 							//Write PTS  
 							AVRational time_base1 = in_stream->time_base;
@@ -353,16 +322,15 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 		pkt.pos = -1;
 		pkt.stream_index = stream_index;
 
-		printf("Write 1 Packet. size:%5d\tpts:%lld\n", pkt.size, pkt.pts);
+		//printf("Write 1 Packet. size:%5d\tpts:%lld\n", pkt.size, pkt.pts);
 		//Write  
 		if (av_interleaved_write_frame(_ofmt_ctx, &pkt) < 0) {
 			//printf("Error muxing packet\n");
 			//break;
-			av_free_packet(&pkt);
-			throw  EmediaException("Error muxing packet by call func3");
+			av_packet_unref(&pkt);
+			throw  WriteExceptionPara(_ofmt_ctx, &pkt);
 		}
-		av_free_packet(&pkt);
-
+		av_packet_unref(&pkt);
 	}
 
 #if USE_H264BSF  
