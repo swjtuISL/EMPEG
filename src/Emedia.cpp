@@ -19,10 +19,11 @@ shared_ptr<Emedia> Emedia::generate(const string& path){
 	getFileType(path, fileType);
 	
 	if (fileType != "mp4"){
-		std::cout << "fail\n";
-		throw ParamExceptionPara(path);
+		throw ParamExceptionPara(path, fileType);
 	}
 	shared_ptr<Emedia> ptr = shared_ptr<Emedia>(new EmediaImpl(path));	
+
+	std::cout << "--------------------------" << std::endl;
 	ptr->_open_();			//throw
 	return  ptr;
 }

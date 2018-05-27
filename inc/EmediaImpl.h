@@ -3,12 +3,9 @@
 
 #include "Emedia.h"
 #include<hash_map>
-#include<exception>
 
-
-
-#define USE_H264BSF 1	//'1': Use H.264 Bitstream Filter   
-#define USE_AACBSF  0	//'1': Use AAC Bitstream Filter 
+#define USE_H264BSF 1			//'1': Use H.264 Bitstream Filter   
+#define USE_AACBSF  0			//'1': Use AAC Bitstream Filter 
 
 class EmediaImpl : public Emedia{
 public:
@@ -43,7 +40,7 @@ private:
 	int _audioStream;								 //音视频索引，读取时区分音视频
 	int _flag;
 	int _ret = 0;
-//    hash_map<AVCodecID, VideoType> _videoTypeMap;
+    //hash_map<AVCodecID, VideoType> _videoTypeMap;
 };
 
 #endif

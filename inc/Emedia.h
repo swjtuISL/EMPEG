@@ -2,14 +2,14 @@
 #define __EMEDIA_H
 #include <string>
 #include <memory>
-
+/*
 enum VideoType{
 	NONE,	//无
 	H264,
 	MPEG4,
 	JPEG2000
 };
-
+*/
 #ifndef _FFMPEG_H
 #define _FFMPEG_H
 extern "C"{
@@ -51,9 +51,10 @@ private:
 	int frame_index;
 };
 
-//--------------class Emedia-------------------------------------
+//--------------class Emedia-------------------------------
 class Emedia{
 public:
+	enum VideoType{NONE, H264, MPEG4, JPEG2000};
 	virtual ~Emedia(){};
 	virtual const     std::string& where() = 0;				// 视频所在的绝对路径
 	virtual int       high() = 0;							// 视频文件高

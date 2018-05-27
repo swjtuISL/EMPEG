@@ -22,10 +22,10 @@ EmediaImpl::EmediaImpl(const std::string& path){
 	_audioStream = -1;
 	_flag = -1;
 	//formatCtx->filename
-	//hash_map<AVCodecID, VideoType> _videoTypeMap;
-	/*_videoTypeMap[AV_CODEC_ID_H264] = H264;
+	hash_map<AVCodecID, VideoType> _videoTypeMap;
+	_videoTypeMap[AV_CODEC_ID_H264] = H264;
 	_videoTypeMap[AV_CODEC_ID_MPEG4] = MPEG4;
-	_videoTypeMap[AV_CODEC_ID_JPEG2000] = JPEG2000;*/
+	_videoTypeMap[AV_CODEC_ID_JPEG2000] = JPEG2000;
 }
 
 //检查打开是否成功
@@ -556,22 +556,8 @@ EmediaImpl::~EmediaImpl(){
 	if (_ret < 0 && _ret != AVERROR_EOF) {
 		printf("Error occurred.\n");
 	}
-	cout << "---------xvideo end-----\n";
+	std::cout << "---------call ~EmediaImpl-----\n";
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -596,7 +582,7 @@ double EmediaImpl::fps(){
 	return R.num == 0 | R.den == 0 ? 0.0 : (double)R.num / (double)R.den;
 }
 
-VideoType EmediaImpl::video_type(){
+EmediaImpl::VideoType EmediaImpl::video_type(){
 	//if (_videoTypeMap.find(_formatCtx->streams[_videoStream]->codecpar->codec_id) != _videoTypeMap.end)
 	//	return _videoTypeMap[_formatCtx->streams[_videoStream]->codecpar->codec_id];
 	//else
