@@ -15,13 +15,13 @@ int main(){
 	shared_ptr<Emedia> media = nullptr;
 	Emedia::VideoType type;
 	try{
-		media = Emedia::generate("video_2018.mp4");	//Wildlife	
-
-		media->xvideo("audio.h264");						//通过
+		media = Emedia::generate("video_2018.mp3");	//Wildlife	
+		
 		//media->demuxer("video.h264", "audio.aac");			//通过
-		media->xaudio("audio.aac");
-		//media->xyuv("yuv.yuv");
-		//media->combine("audio.h264", "audio.aac", "combine.mp4");	
+		media->xaudio("2019.aac",1);
+		media->xvideo("2019.h264");							//通过
+		//media->xyuv(  "2019.yuv");
+		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
 		//type= media->video_type();
 	}
 	catch (OpenException except){
@@ -47,7 +47,13 @@ int main(){
 		cout << except.where() << endl;
 		cin.get();
 		return 1;
-	}			
+	}
+	catch (DecodeExceptionPara except){
+		cout << except.what() << endl;
+		cout << except.where() << endl;
+		cin.get();
+		return 1;
+	}
 	
 	cout << "done!" << endl;
 	cin.get();	

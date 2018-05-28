@@ -37,21 +37,6 @@ shared_ptr<Emedia> Emedia::generate(const string& path){
 //	return 0;
 //}
 
-//--指针处理
-void Muxer::EmideaClose(){
-	avformat_close_input(&_ifmt_ctx_v);
-	avformat_close_input(&_ifmt_ctx_a);
-	/* close output */
-	if ( _ofmt_ctx && !(_ofmt->flags & AVFMT_NOFILE))
-		avio_close(_ofmt_ctx->pb);
-	avformat_free_context(_ofmt_ctx);
-	int ret = -1;
-	if (ret < 0 && ret != AVERROR_EOF) {
-		std::cout<<"Error occurred.\n";
-		//return -1;
-	}
-}
-
 Muxer::Muxer(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath)
 :_videoPath(videoPath), _audioPath(audioPath), _mediaPath(mediaPath)
 {
@@ -66,7 +51,7 @@ Muxer::Muxer(const std::string& videoPath, const std::string& audioPath, const s
 	_audioindex_a = -1;
 	_videoindex_out = -1;
 	_audioindex_out = -1;
-	frame_index = -1;
+	_frame_index = -1;
 }
 
 Muxer::Muxer()
@@ -75,11 +60,10 @@ Muxer::Muxer()
 	_audioindex_a = -1;
 	_videoindex_out = -1;
 	_audioindex_out = -1;
-	frame_index = -1;
+	_frame_index = -1;
 }
 
 Muxer::~Muxer(){
-	//EmideaClose();
 	avformat_close_input(&_ifmt_ctx_v);
 	avformat_close_input(&_ifmt_ctx_a);
 	/* close output */
@@ -102,10 +86,8 @@ bool Muxer::combineVideoAudio(){
 
 	//Output  
 	avformat_alloc_output_context2(&_ofmt_ctx, NULL, NULL, out_filename);
-	if (!_ofmt_ctx) {
-		//printf("Could not create output context\n");
-		ret = AVERROR_UNKNOWN;
-		//EmideaClose();
+	if (!_ofmt_ctx) {		
+		ret = AVERROR_UNKNOWN;		
 		throw OpenException("Could not create output context");
 	}
 	_ofmt = _ofmt_ctx->oformat;
@@ -113,7 +95,6 @@ bool Muxer::combineVideoAudio(){
 	findStream();						//throw
 
 	//Open output file  
-
 	if (!(_ofmt->flags & AVFMT_NOFILE)) {
 		if (avio_open(&_ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
 			throw OpenException("Could not open output file");
@@ -122,13 +103,11 @@ bool Muxer::combineVideoAudio(){
 	}
 
 	//Write file header  
-	if (avformat_write_header(_ofmt_ctx, NULL) < 0) {
-		//printf("Error occurred when opening output file\n");
-		//return 1;
+	if (avformat_write_header(_ofmt_ctx, NULL) < 0) {		
 		throw  OpenException("Error occurred when opening output file");
 	}
 
-	writeFream(cur_pts_v, cur_pts_a);		//throw
+	writeFrame(cur_pts_v, cur_pts_a);		//throw
 
 	//Write file trailer  
 	av_write_trailer(_ofmt_ctx);
@@ -142,14 +121,12 @@ bool Muxer::combineVideoAudio(){
 	#endif
 	*/
 	//end:
-	//EmideaClose();
-	cout << "----end---------";
+	cout << "----combineVideoAudio end---------";
 	return 0;
 }
 
 void Muxer::openInit()
-{
-	
+{	
 	int ret = -1;
 	const char *in_filename_v = _videoPath.c_str();
 	const char *in_filename_a = _audioPath.c_str();
@@ -210,48 +187,52 @@ void Muxer::findStream()
 			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
 			_audioindex_a = i;
 			if (!out_stream) {
-				printf("Failed allocating output stream\n");
+				std::cout<<"Failed allocating output stream\n";
 				ret = AVERROR_UNKNOWN;
 				throw StreamExceptionPara("Muxer::findStream()->avformat_new_stream", _ofmt_ctx);
 			}
 			_audioindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
-			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {
-				//printf("Failed to copy context from input to output stream codec context\n");
+			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {				
 				throw StreamExceptionPara("Muxer::findStream()->avcodec_copy_context", in_stream->codec);
 			}
 			out_stream->codec->codec_tag = 0;
 			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
 				out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
 			break;
 		}
 	}
 }
 
-void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
+void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a)
 {
 	//FIX  
 	AVPacket pkt;
-	/*
+	AVBitStreamFilterContext* h264bsfc;
+	AVBitStreamFilterContext* aacbsfc;
+	
 	std::string fileType;
 	fileType = (_mediaPath.substr(_mediaPath.find(".") + 1));	//获取文件类型
-	if (fileType == "mp4" || fileType == "flv")
-		AVBitStreamFilterContext* h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
-	*/
+	if (fileType == "mp4" || fileType == "flv" || fileType == "mkv"){
+		_isfilter=1;
+		h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
+		aacbsfc = av_bitstream_filter_init("aac_adtstoasc");
+	}
+
+/*
 #if USE_H264BSF  
 	AVBitStreamFilterContext* h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
 #endif  
 #if USE_AACBSF  
 	AVBitStreamFilterContext* aacbsfc = av_bitstream_filter_init("aac_adtstoasc");
 #endif  
+*/
 	while (1)
 	{
 		AVFormatContext *ifmt_ctx;
 		int stream_index = 0;
 		AVStream *in_stream, *out_stream;
-
-		//Get an AVPacket  
+		
 		if (av_compare_ts(cur_pts_v, _ifmt_ctx_v->streams[_videoindex_v]->time_base, cur_pts_a, _ifmt_ctx_a->streams[_audioindex_a]->time_base) <= 0)
 		{
 			ifmt_ctx = _ifmt_ctx_v;
@@ -271,10 +252,10 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 							//Duration between 2 frames (us)  
 							int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(in_stream->r_frame_rate);
 							//Parameters  
-							pkt.pts = (double)(frame_index*calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
+							pkt.pts = (double)(_frame_index*calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
 							pkt.dts = pkt.pts;
 							pkt.duration = (double)calc_duration / (double)(av_q2d(time_base1)*AV_TIME_BASE);
-							frame_index++;
+							_frame_index++;
 						}
 
 						cur_pts_v = pkt.pts;
@@ -306,10 +287,10 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 							//Duration between 2 frames (us)  
 							int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(in_stream->r_frame_rate);
 							//Parameters  
-							pkt.pts = (double)(frame_index*calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
+							pkt.pts = (double)(_frame_index*calc_duration) / (double)(av_q2d(time_base1)*AV_TIME_BASE);
 							pkt.dts = pkt.pts;
 							pkt.duration = (double)calc_duration / (double)(av_q2d(time_base1)*AV_TIME_BASE);
-							frame_index++;
+							_frame_index++;
 						}
 						cur_pts_a = pkt.pts;
 						break;
@@ -322,13 +303,18 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 		}
 
 		//FIX:Bitstream Filter  
+		if (_isfilter){
+			av_bitstream_filter_filter(h264bsfc, in_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
+			av_bitstream_filter_filter(aacbsfc, out_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
+		}
+/*
 #if USE_H264BSF  
 		av_bitstream_filter_filter(h264bsfc, in_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
 #endif  
 #if USE_AACBSF  
 		av_bitstream_filter_filter(aacbsfc, out_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
 #endif  
-
+*/
 		//Convert PTS/DTS  
 		pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
 		pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
@@ -338,20 +324,22 @@ void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a)
 
 		//printf("Write 1 Packet. size:%5d\tpts:%lld\n", pkt.size, pkt.pts);
 		//Write  
-		if (av_interleaved_write_frame(_ofmt_ctx, &pkt) < 0) {
-			//printf("Error muxing packet\n");
-			//break;
+		if (av_interleaved_write_frame(_ofmt_ctx, &pkt) < 0) {			
 			av_packet_unref(&pkt);
 			throw  WriteExceptionPara(_ofmt_ctx, &pkt);
 		}
 		av_packet_unref(&pkt);
 	}
-
+	//if (_isfilter)
+	av_bitstream_filter_close(h264bsfc);
+	av_bitstream_filter_close(aacbsfc);
+/*
 #if USE_H264BSF  
 	av_bitstream_filter_close(h264bsfc);
 #endif  
 #if USE_AACBSF  
 	av_bitstream_filter_close(aacbsfc);
 #endif
+*/
 }
 

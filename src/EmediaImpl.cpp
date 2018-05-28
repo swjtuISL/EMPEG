@@ -18,6 +18,10 @@ extern "C"{
 
 
 EmediaImpl::EmediaImpl(const std::string& path){
+	av_register_all();								//初始化封装												
+	avformat_network_init();						//初始化网络库 （可以打开rtsp rtmp http 协议的流媒体视频）
+	avcodec_register_all();							//注册解码器
+
 	_filePath = path;
 	_videoStream = -1;
 	_audioStream = -1;
@@ -35,10 +39,7 @@ EmediaImpl::EmediaImpl(const std::string& path){
 }
 
 //检查打开是否成功
-bool EmediaImpl::_open_(){
-	av_register_all();								//初始化封装												
-	avformat_network_init();						//初始化网络库 （可以打开rtsp rtmp http 协议的流媒体视频）
-	avcodec_register_all();							//注册解码器
+bool EmediaImpl::_open_(){	
 	AVDictionary *opts = NULL;						//参数设置
 	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //设置rtsp流已tcp协议打开
 	av_dict_set(&opts, "max_delay", "500", 0);		//网络延时时间
@@ -53,8 +54,6 @@ bool EmediaImpl::_open_(){
 	}
 
 	if (avformat_find_stream_info(_formatCtx, 0) < 0){
-		//cout<<"Failed to retrieve input stream information\n";
-		//return false;
 		throw OpenException("find stream fail call avformat_find_stream_info");
 	}
 	
@@ -63,31 +62,28 @@ bool EmediaImpl::_open_(){
 	_audioStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
 	if (_videoStream + _audioStream<1)	throw StreamExceptionPara("find stream fail call avformat_find_stream_info", _formatCtx);
 
-	//--音视频解码器创建及打开
-	for (int i = 0; i < _formatCtx->nb_streams; i++)
-	{	
-		_encodecCtx = _formatCtx->streams[i]->codec;
-		if (_encodecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
-		{
-			AVCodec *codec = avcodec_find_decoder(_encodecCtx->codec_id);
-			if (!codec){
-				//cout << "video code not find\n";
-				//return false;
-				throw OpenException("find decoder call avcodec_find_decoder", codec);
-			}
-			int err = avcodec_open2(_encodecCtx, codec, NULL);
-			if (err != 0){
-				char buf[1024] = { 0 };
-				av_strerror(err, buf, sizeof(buf));
-				//cout << buf << endl;	return 0;
-				throw OpenException(buf);
-			}
-			cout << "open codec success by call XFFmpeg::open \n";
-		}
-	}
+	
 	return true;
 }
 
+void EmediaImpl::_openFormatCtx(){
+	AVDictionary *opts = NULL;						//参数设置
+	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //设置rtsp流已tcp协议打开
+	av_dict_set(&opts, "max_delay", "500", 0);		//网络延时时间
+
+	const char *pathTemp = _filePath.c_str();
+	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
+
+	if (_flag != 0){
+		char buf[1024] = { 0 };		//存放错误信息
+		av_strerror(_flag, buf, sizeof(buf)-1);
+		throw OpenException("EmediaImpl::_open_()->avformat_open_input", buf);
+	}
+
+	if (avformat_find_stream_info(_formatCtx, 0) < 0){
+		throw OpenException("find stream fail call avformat_find_stream_info");
+	}
+}
 
 void EmediaImpl::creatStream(){
 	AVFormatContext *ofmt_ctx;
@@ -115,7 +111,7 @@ void EmediaImpl::creatStream(){
 		out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
 }
 
-bool EmediaImpl::xvideo(const std::string& path){
+bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型
 	if ( outFileType != "h264" )
 		throw OpenException("output file error", path);
@@ -128,11 +124,13 @@ bool EmediaImpl::xvideo(const std::string& path){
 	//Output---ofmt_ctx_v存输出文件格式
 	const char* out_filename_v = path.c_str();
 
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);
 	if (!_ofmt_ctx_v) {
 		std::cout<<"Could not create output context\n";
-		_ret = AVERROR_UNKNOWN;
-		//goto end;
+		_ret = AVERROR_UNKNOWN;		
 		throw OpenException("call avformat_alloc_output_context2 error", _ofmt_ctx_v);
 	}
 	_ofmt_v = _ofmt_ctx_v->oformat;
@@ -171,7 +169,7 @@ bool EmediaImpl::xvideo(const std::string& path){
 		if (pkt.stream_index == _videoStream){
 			//out_stream = _ofmt_ctx_v->streams[_videoStream];
 			out_stream = _ofmt_ctx_v->streams[0];
-			printf("Write Video Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
+			if (isDebug)	std::cout << "Write Video Packet. size:" << pkt.size << "   pkt.pts:" << pkt.pts << std::endl;			
 //#if USE_H264BSF
 			if (_fileType == "mp4" || _fileType == "flv")
 				av_bitstream_filter_filter(h264bsfc, in_stream->codec, NULL, &pkt.data, &pkt.size, pkt.data, pkt.size, 0);
@@ -200,12 +198,13 @@ bool EmediaImpl::xvideo(const std::string& path){
 //#endif
 	//Write file trailer
 	av_write_trailer(_ofmt_ctx_v);
-
+	
+	avformat_close_input(&_formatCtx);
 	return true;
 }
 
 //----提取音频和视频
-bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioPath){		
+bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioPath,bool isDebug){		
 	AVPacket pkt;
 	int ret = 0, i = 0;
 	int frame_index = 0;
@@ -218,6 +217,9 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	const char* out_filename_a = audioPath.c_str();
 	AVBitStreamFilterContext* h264bsfc = nullptr;
 
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);
 	if (!_ofmt_ctx_v) {
 		std::cout<<"Could not create output context\n";
@@ -307,7 +309,8 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 		else if (pkt.stream_index == _audioStream){
 			out_stream = _ofmt_ctx_a->streams[0];
 			ofmt_ctx = _ofmt_ctx_a;
-			printf("Write Audio Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
+			if (isDebug)	std::cout << "Write Audio Packet. size:" << pkt.size << "   pkt.pts:" << pkt.pts << std::endl;			
+			//printf("Write Audio Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
 		}
 		else	continue;
 
@@ -344,6 +347,8 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 		printf("Error occurred.\n");
 		return false;
 	}	
+
+	avformat_close_input(&_formatCtx);
 	return true;
 }
 
@@ -365,7 +370,7 @@ closeContext(){
 }
 */
 
-bool EmediaImpl::xaudio(const std::string& path){
+bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型,判断输入参数
 	if (outFileType != "aac")
 		throw OpenException("output file error", path);
@@ -374,15 +379,21 @@ bool EmediaImpl::xaudio(const std::string& path){
 	//AVFormatContext* ofmt_ctx_a = nullptr;
 	AVPacket pkt;
 	
-	AVFormatContext *ofmt_ctx;
-	AVStream		*in_stream = _formatCtx->streams[_audioStream];
-	AVStream		*out_stream = nullptr;
+	AVFormatContext* ofmt_ctx = nullptr;
+	AVStream* in_stream  = nullptr;
+	AVStream* out_stream = nullptr;
 
 	int ret = 0, i = 0;
 	int frame_index = 0;						//统计读取的packet的个数
 	//Output---ofmt_ctx_v存输出文件格式
 	const char* out_filename_a = path.c_str();
 
+	//--重新打开_formatCtx
+	if (!_formatCtx){
+		_openFormatCtx();
+	}	
+
+	in_stream = _formatCtx->streams[_audioStream];
 	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	if (!_ofmt_ctx_a) {
 		std::cout<<"Could not create output context\n";
@@ -424,7 +435,7 @@ bool EmediaImpl::xaudio(const std::string& path){
 	//Write file header,有问题
 	if (avformat_write_header(_ofmt_ctx_a, NULL) < 0) {
 		printf("Error occurred when opening audio output file\n");
-		throw;
+		throw WriteExceptionPara("call avformat_write_header error", _ofmt_ctx_a);;
 	}
 
 	while (1)
@@ -439,7 +450,8 @@ bool EmediaImpl::xaudio(const std::string& path){
 			//out_stream = ofmt_ctx_a->streams[_audioStream];
 			out_stream = _ofmt_ctx_a->streams[0];
 			ofmt_ctx = _ofmt_ctx_a;
-			printf("Write Audio Packet. size:%d\tpts:%lld\n", pkt.size, pkt.pts);
+			
+			if (isDebug)	std::cout << "pkt.size:" << pkt.size << "  pkt.pts: " << pkt.pts << std::endl;			
 		}
 		else continue;
 
@@ -450,10 +462,8 @@ bool EmediaImpl::xaudio(const std::string& path){
 		pkt.pos = -1;
 		pkt.stream_index = 0;
 		//Write
-		if (av_interleaved_write_frame(ofmt_ctx, &pkt) < 0) {
-			printf("Error muxing packet\n");
-			//break;
-			throw;
+		if (av_interleaved_write_frame(ofmt_ctx, &pkt) < 0) {						
+			throw WriteExceptionPara(ofmt_ctx, &pkt);
 		}
 
 		av_packet_unref(&pkt);
@@ -471,17 +481,44 @@ bool EmediaImpl::xaudio(const std::string& path){
 		printf("Error occurred.\n");
 		return false;
 	}
+
+	avformat_close_input(&_formatCtx);
 	cout << "-----xaudio end--------\n";
 	return true;
 }
 
 //--获取yuv
-bool EmediaImpl::xyuv(const std::string& path){
+bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	//-将解码后的frame以YUV240的格式写入文件
 	//	AVFrame* pFrame;
 	ofstream ofile(path, ios::binary);	//yuv文件
 	if (!ofile){
 		throw OpenException("open file error call ofstream ofile", path);
+	}
+	
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
+
+	//--音视频解码器创建及打开
+	for (int i = 0; i < _formatCtx->nb_streams; i++)
+	{
+		_encodecCtx = _formatCtx->streams[i]->codec;
+		if (_encodecCtx->codec_type == AVMEDIA_TYPE_VIDEO)
+		{
+			AVCodec *codec = avcodec_find_decoder(_encodecCtx->codec_id);
+			if (!codec){				
+				throw OpenException("find decoder call avcodec_find_decoder", codec);
+			}
+			int err = avcodec_open2(_encodecCtx, codec, NULL);
+			if (err != 0){
+				char buf[1024] = { 0 };
+				av_strerror(err, buf, sizeof(buf));
+				//cout << buf << endl;	return 0;
+				throw OpenException(buf);
+			}
+			cout << "open codec success by call XFFmpeg::open \n";
+		}
 	}
 
 	AVFrame* pFrameYUV = av_frame_alloc();
@@ -525,10 +562,11 @@ bool EmediaImpl::xyuv(const std::string& path){
 		ofile.write((char*)pFrameYUV->data[0], (pCodecCtx->width)*(pCodecCtx->height));
 		ofile.write((char*)pFrameYUV->data[1], (pCodecCtx->width)*(pCodecCtx->height) / 4);
 		ofile.write((char*)pFrameYUV->data[2], (pCodecCtx->width)*(pCodecCtx->height) / 4);
-		cout << "--------------write----------------\n";
+		if (isDebug)	cout << "-----write----\n";
 	}
 
 	ofile.clear();
+	avformat_close_input(&_formatCtx);
 	return true;
 }
 
@@ -544,7 +582,7 @@ bool EmediaImpl::_read_frame(AVPacket& pkt){
 }
 
 //----解码一个packet
-bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){
+bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){	
 	_formatCtx->streams[pkt->stream_index]->codecpar;
 	int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//涉及解码器
 	if (re != 0){		

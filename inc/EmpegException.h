@@ -22,14 +22,19 @@ public:
 	OpenException(const std::string  w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	OpenException(const std::string  w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc), _where(w){};
 	OpenException(const std::string  w, AVCodec       *  avcodec)     :_avcodec(avcodec), _where(w){};
+	
 	virtual const std::string& what() { return _reson; };		//异常原因
+	virtual void what(const AVFormatContext* avformatCtx, const AVCodecContext* avcodecCtc){
+		_avformatCtx=avformatCtx;
+		_avcodecCtc = avcodecCtc;
+	};		
 	virtual const std::string& where(){ return _where; };		//异常位置
 private:
 	std::string _reson;
 	std::string _where;
-	AVFormatContext* _avformatCtx = nullptr;
-	AVCodecContext*  _avcodecCtc  = nullptr;
-	AVCodec*		 _avcodec     = nullptr;
+	const AVFormatContext* _avformatCtx = nullptr;
+	const AVCodecContext*  _avcodecCtc  = nullptr;
+	const AVCodec*		   _avcodec     = nullptr;
 };
 
 //-------数据流层异常--------------------------
@@ -42,13 +47,19 @@ public:
 	StreamExceptionPara(const std::string w, AVStream*        avstream)    :_avstream(avstream)      , _where(w){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
-
+	
+	virtual void what(AVFormatContext* avformatCtx, AVCodecContext* avcodecCtc) {
+		_avformatCtx = avformatCtx;	_avcodecCtc = avcodecCtc;
+	};
+	virtual void what(AVFormatContext* avformatCtx, AVStream* avstream) {
+		_avformatCtx = avformatCtx;	_avstream = avstream;
+	};
 private:
 	std::string _reson;
 	std::string _where;
-	AVFormatContext* _avformatCtx = nullptr;
-	AVCodecContext*  _avcodecCtc  = nullptr;
-	AVStream*		 _avstream    = nullptr;
+	const AVFormatContext* _avformatCtx = nullptr;
+	const AVCodecContext*  _avcodecCtc  = nullptr;
+	const AVStream*		 _avstream    = nullptr;
 };
 
 //-------写数据异常--------------------------
@@ -58,7 +69,7 @@ public:
 	WriteExceptionPara(const std::string w, std::string r = "\0") :_reson(r), _where(w){};
 	WriteExceptionPara(const std::string w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	WriteExceptionPara(const std::string w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc), _where(w){};
-	WriteExceptionPara(AVFormatContext* avformatCtx, AVPacket* packet) :_avformatCtx(avformatCtx), _packet(packet){};
+	WriteExceptionPara(AVFormatContext* avformatCtx, AVPacket* packet)    :_avformatCtx(avformatCtx), _packet(packet){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
 

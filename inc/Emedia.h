@@ -26,10 +26,9 @@ public:
 	Muxer(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath);
 	Muxer();
 	~Muxer();
-	void EmideaClose();
 	void openInit();
 	void findStream();
-	void Muxer::writeFream(int64_t& cur_pts_v, int64_t& cur_pts_a);
+	void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a);
 	bool combineVideoAudio();
 
 private:
@@ -48,7 +47,9 @@ private:
 	int _videoindex_out;
 	int _audioindex_out;
 
-	int frame_index;
+	int _frame_index;
+
+	bool _isfilter=0;
 };
 
 //--------------class Emedia-------------------------------
@@ -63,10 +64,10 @@ public:
 	virtual double    fps()    = 0;							// 视频帧率
 	virtual VideoType video_type() = 0;						// 视频格式
 
-	virtual bool demuxer(const std::string& videoPath, const std::string& audioPath)=0;	//提取音屏和视频文件
-	virtual bool xaudio (const std::string& path) = 0;	// 提取音频文件到指定路径
-	virtual bool xvideo (const std::string& path) = 0;	// 提取视频文件到指定路径
-	virtual bool xyuv   (const std::string& path) = 0;	// 提取视频文件中的yuv
+	virtual bool demuxer(const std::string& videoPath, const std::string& audioPath, bool isDebug = 0) = 0;	//提取音屏和视频文件
+	virtual bool xaudio(const std::string& path, bool isDebug = 0) = 0;	// 提取音频文件到指定路径
+	virtual bool xvideo(const std::string& path, bool isDebug = 0) = 0;	// 提取视频文件到指定路径
+	virtual bool xyuv(  const std::string& path, bool isDebug=0) = 0;	// 提取视频文件中的yuv
 	
 protected:
 	virtual bool _open_()=0;	
