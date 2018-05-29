@@ -18,7 +18,7 @@ int main(){
 		media = Emedia::generate("video_2018.mp3");	//Wildlife	
 		
 		//media->demuxer("video.h264", "audio.aac");			//通过
-		media->xaudio("2019.aac",1);
+		media->xaudio("2019.aac",true);
 		media->xvideo("2019.h264");							//通过
 		//media->xyuv(  "2019.yuv");
 		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
