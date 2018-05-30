@@ -18,12 +18,8 @@ shared_ptr<Emedia> Emedia::generate(const string& path){
 	std::string fileType;
 	getFileType(path, fileType);
 	
-	if (fileType != "mp4"){
-		throw ParamExceptionPara(path, fileType);
-	}
 	shared_ptr<Emedia> ptr = shared_ptr<Emedia>(new EmediaImpl(path));	
-
-	std::cout << "--------------------------" << std::endl;
+	
 	ptr->_open_();			//throw
 	return  ptr;
 }
@@ -88,7 +84,7 @@ bool Muxer::combineVideoAudio(){
 	avformat_alloc_output_context2(&_ofmt_ctx, NULL, NULL, out_filename);
 	if (!_ofmt_ctx) {		
 		ret = AVERROR_UNKNOWN;		
-		throw OpenException("Could not create output context");
+		throw OpenException("avformat_alloc_output_context2 error");
 	}
 	_ofmt = _ofmt_ctx->oformat;
 
@@ -104,7 +100,7 @@ bool Muxer::combineVideoAudio(){
 
 	//Write file header  
 	if (avformat_write_header(_ofmt_ctx, NULL) < 0) {		
-		throw  OpenException("Error occurred when opening output file");
+		throw  OpenException("Error occurred when opening output file " + _mediaPath);
 	}
 
 	writeFrame(cur_pts_v, cur_pts_a);		//throw
@@ -135,19 +131,19 @@ void Muxer::openInit()
 	if ((ret = avformat_open_input(&_ifmt_ctx_v, in_filename_v, 0, 0)) < 0) {
 		char buf[512] = { 0 };						//´æ·Å´íÎóÄÚÈÝ
 		av_strerror(ret, buf, sizeof(buf)-1);
-		throw OpenException("Muxer::openInit()->avformat_open_input",buf);
+		throw OpenException("avformat_open_input error:" + std::string(buf));
 	}
 	if ((ret = avformat_find_stream_info(_ifmt_ctx_v, 0)) < 0) {
-		throw OpenException("Muxer::openInit()->avformat_find_stream_info", _ifmt_ctx_v);
+		throw OpenException("avformat_find_stream_info error;file is: " + _videoPath);
 	}
 
 	if ((ret = avformat_open_input(&_ifmt_ctx_a, in_filename_a, 0, 0)) < 0) {
 		char buf[512] = { 0 };						//´æ·Å´íÎóÄÚÈÝ
 		av_strerror(ret, buf, sizeof(buf)-1);
-		throw OpenException("Muxer::openInit()->avformat_open_input", buf);
+		throw OpenException("avformat_open_input error:" + std::string(buf));
 	}
 	if ((ret = avformat_find_stream_info(_ifmt_ctx_a, 0)) < 0) {
-		throw OpenException("Muxer::openInit()->avformat_find_stream_info", _ifmt_ctx_a);
+		throw OpenException("avformat_find_stream_info error;file is: " + _audioPath);
 	}
 }
 
@@ -164,12 +160,12 @@ void Muxer::findStream()
 			_videoindex_v = i;
 			if (!out_stream) {				
 				ret = AVERROR_UNKNOWN;
-				throw StreamExceptionPara("Muxer::findStream()->avformat_new_stream", _ofmt_ctx);
+				throw StreamExceptionPara("avformat_new_stream error", _ofmt_ctx);
 			}
 			_videoindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
 			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {		
-				throw StreamExceptionPara("Muxer::findStream()->avcodec_copy_context",in_stream->codec);
+				throw StreamExceptionPara("avcodec_copy_context",in_stream->codec);
 			}
 			out_stream->codec->codec_tag = 0;
 			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -186,15 +182,14 @@ void Muxer::findStream()
 			AVStream *in_stream = _ifmt_ctx_a->streams[i];
 			AVStream *out_stream = avformat_new_stream(_ofmt_ctx, in_stream->codec->codec);
 			_audioindex_a = i;
-			if (!out_stream) {
-				std::cout<<"Failed allocating output stream\n";
+			if (!out_stream) {				
 				ret = AVERROR_UNKNOWN;
-				throw StreamExceptionPara("Muxer::findStream()->avformat_new_stream", _ofmt_ctx);
+				throw StreamExceptionPara("findStream()->avformat_new_stream", _ofmt_ctx);
 			}
 			_audioindex_out = out_stream->index;
 			//Copy the settings of AVCodecContext  
 			if (avcodec_copy_context(out_stream->codec, in_stream->codec) < 0) {				
-				throw StreamExceptionPara("Muxer::findStream()->avcodec_copy_context", in_stream->codec);
+				throw StreamExceptionPara("avcodec_copy_context", in_stream->codec);
 			}
 			out_stream->codec->codec_tag = 0;
 			if (_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
@@ -326,7 +321,7 @@ void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a)
 		//Write  
 		if (av_interleaved_write_frame(_ofmt_ctx, &pkt) < 0) {			
 			av_packet_unref(&pkt);
-			throw  WriteExceptionPara(_ofmt_ctx, &pkt);
+			throw  WriteExceptionPara("write frame frome AVFormatContext to AVPacket error",_ofmt_ctx, &pkt);
 		}
 		av_packet_unref(&pkt);
 	}
