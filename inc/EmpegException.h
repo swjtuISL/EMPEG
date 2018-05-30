@@ -18,7 +18,8 @@ class OpenException :public std::exception
 {
 public:
 	//OpenException(const std::string& w) :_where(w){};
-	OpenException(const std::string  w, std::string r="\0" ) :_where(w), _reson(r){};
+	OpenException(const std::string r = "\0") : _reson(r){};
+	OpenException(const std::string  w, std::string r ) :_where(w), _reson(r){};
 	OpenException(const std::string  w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	OpenException(const std::string  w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc), _where(w){};
 	OpenException(const std::string  w, AVCodec       *  avcodec)     :_avcodec(avcodec), _where(w){};
@@ -41,7 +42,8 @@ private:
 class StreamExceptionPara :public std::exception
 {
 public:
-	StreamExceptionPara(const std::string w, std::string r = "\0") :_reson(r), _where(w){};
+	StreamExceptionPara(std::string r = "\0") :_reson(r){};
+	StreamExceptionPara(const std::string w, std::string r ) :_reson(r), _where(w){};
 	StreamExceptionPara(const std::string w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	StreamExceptionPara(const std::string w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc)  ,   _where(w){};
 	StreamExceptionPara(const std::string w, AVStream*        avstream)    :_avstream(avstream)      , _where(w){};
@@ -70,6 +72,7 @@ public:
 	WriteExceptionPara(const std::string w, AVFormatContext* avformatCtx) :_avformatCtx(avformatCtx), _where(w){};
 	WriteExceptionPara(const std::string w, AVCodecContext*  avcodecCtc)  :_avcodecCtc(avcodecCtc), _where(w){};
 	WriteExceptionPara(AVFormatContext* avformatCtx, AVPacket* packet)    :_avformatCtx(avformatCtx), _packet(packet){};
+	WriteExceptionPara(std::string r, AVFormatContext* avformatCtx, AVPacket* packet) :_reson(r),_avformatCtx(avformatCtx), _packet(packet){};
 	virtual const std::string& what() { return _reson; };		//异常原因
 	virtual const std::string& where(){ return _where; };		//异常位置
 

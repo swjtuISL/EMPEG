@@ -15,7 +15,7 @@ int main(){
 	shared_ptr<Emedia> media = nullptr;
 	Emedia::VideoType type;
 	try{
-		media = Emedia::generate("video_2018.mp3");	//Wildlife	
+		media = Emedia::generate("video_2018.mp4");	//Wildlife	
 		
 		//media->demuxer("video.h264", "audio.aac");			//Í¨¹ý
 		media->xaudio("2019.aac",true);

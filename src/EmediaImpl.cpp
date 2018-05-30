@@ -29,8 +29,6 @@ EmediaImpl::EmediaImpl(const std::string& path){
 	//formatCtx->filename
 	
 	_fileType = (path.substr(path.find(".") + 1));	//获取文件类型
-	if (_fileType != "mp4" && _fileType != "flv")
-		throw OpenException("open file erro", path);
 
 	/*hash_map<AVCodecID, VideoType> _videoTypeMap;
 	_videoTypeMap[AV_CODEC_ID_H264] = H264;
@@ -46,21 +44,20 @@ bool EmediaImpl::_open_(){
 
 	const char *pathTemp = _filePath.c_str();
 	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
-
 	if (_flag != 0){
-		char buf[1024] = { 0 };		//存放错误信息
-		av_strerror(_flag, buf, sizeof(buf)-1);
-		throw OpenException("EmediaImpl::_open_()->avformat_open_input",buf);
+		char buf[512] = { 0 };						//存放错误信息		
+		av_strerror(_flag, buf, sizeof(buf)-1);		
+		throw OpenException("avformat_open_input error:"+std::string(buf));	
 	}
 
 	if (avformat_find_stream_info(_formatCtx, 0) < 0){
-		throw OpenException("find stream fail call avformat_find_stream_info");
+		throw OpenException("avformat_find_stream_info error;file is: " + _filePath);
 	}
 	
 	//--找视频流、音频流标准
 	_videoStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 	_audioStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
-	if (_videoStream + _audioStream<1)	throw StreamExceptionPara("find stream fail call avformat_find_stream_info", _formatCtx);
+	if (_videoStream + _audioStream<1)	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
 
 	
 	return true;
@@ -77,11 +74,11 @@ void EmediaImpl::_openFormatCtx(){
 	if (_flag != 0){
 		char buf[1024] = { 0 };		//存放错误信息
 		av_strerror(_flag, buf, sizeof(buf)-1);
-		throw OpenException("EmediaImpl::_open_()->avformat_open_input", buf);
+		throw OpenException("EmediaImpl::_open_()->avformat_open_input"+std::string( buf));
 	}
 
 	if (avformat_find_stream_info(_formatCtx, 0) < 0){
-		throw OpenException("find stream fail call avformat_find_stream_info");
+		throw OpenException("find stream fail call avformat_find_stream_info frome the file " + _filePath);
 	}
 }
 
@@ -91,13 +88,12 @@ void EmediaImpl::creatStream(){
 	AVStream		*out_stream = nullptr;
 
 	if (_formatCtx->streams[_videoStream]->codecpar->codec_type != AVMEDIA_TYPE_VIDEO){
-		throw OpenException("error _videoStream!=AVMEDIA_TYPE_VIDEO by  call xvideo in ");
+		throw OpenException("not find videoStream in " + _filePath);
 	}
 	out_stream = avformat_new_stream(_ofmt_ctx_v, in_stream->codec->codec);
 	ofmt_ctx = _ofmt_ctx_v;
 
-	if (!out_stream) {
-		std::cout<<"Failed allocating output stream\n";
+	if (!out_stream) {		
 		_ret = AVERROR_UNKNOWN;		
 		throw StreamExceptionPara("creat out_stream call avformat_new_stream fail", out_stream);
 	}
@@ -352,23 +348,6 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	return true;
 }
 
-/*
-closeContext(){
-	if (ofmt_ctx_a && !(ofmt_a->flags & AVFMT_NOFILE))
-		avio_close(ofmt_ctx_a->pb);
-
-	if (ofmt_ctx_v && !(ofmt_v->flags & AVFMT_NOFILE))
-		avio_close(ofmt_ctx_v->pb);
-
-	avformat_free_context(ofmt_ctx_a);
-	avformat_free_context(ofmt_ctx_v);
-
-	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
-		return false;
-	}
-}
-*/
 
 bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型,判断输入参数
@@ -609,7 +588,6 @@ EmediaImpl::~EmediaImpl(){
 	avformat_free_context(_ofmt_ctx_a);
 
 	avformat_close_input(&_formatCtx);
-	std::cout << "----~EmediaImpl------\n";
 }
 
 // 只读函数
