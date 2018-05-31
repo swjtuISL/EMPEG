@@ -15,12 +15,12 @@ int main(){
 	shared_ptr<Emedia> media = nullptr;
 	Emedia::VideoType type;
 	try{
-		media = Emedia::generate("video_2018.mp4");	//Wildlife	
+		media = Emedia::generate("Wildlife.wmv");	//Wildlife	Wildlife.wmv
 		
 		//media->demuxer("video.h264", "audio.aac");			//通过
-		media->xaudio("2019.aac",1);
-		media->xvideo("2019.h264");							//通过
-		//media->xyuv(  "2019.yuv");
+		//media->xaudio("2019.aac",1);
+		//media->xvideo("2019.h264");							//通过
+		media->xyuv(  "2020.yuv",1);
 		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
 		//type= media->video_type();
 	}

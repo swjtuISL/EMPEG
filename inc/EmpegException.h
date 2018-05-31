@@ -88,7 +88,8 @@ private:
 class DecodeExceptionPara :public std::exception
 {
 public:
-	DecodeExceptionPara( std::string w, std::string r = "\0") :_reson(r), _where(w){};
+	DecodeExceptionPara(std::string r ) :_reson(r){};
+	DecodeExceptionPara( std::string w, std::string r ) :_reson(r), _where(w){};
 	DecodeExceptionPara(AVCodecContext*  avcodecCtc, AVPacket*	packet) :_avcodecCtc(avcodecCtc), _packet(packet){};
 	DecodeExceptionPara(AVCodecContext*  avcodecCtc, AVFrame*  frame)   :_avcodecCtc(avcodecCtc), _frame(frame){};
 	//DecodeExceptionPara(std::string w, std::string r = '\0') :_reson(r), _where(w){};
