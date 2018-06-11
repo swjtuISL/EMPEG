@@ -351,8 +351,8 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 
 bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型,判断输入参数
-	if (outFileType != "aac")
-		throw OpenException("output file error", path);
+	/*if (outFileType != "aac")
+		throw OpenException("output file error", path);*/
 
 	//AVOutputFormat*  ofmt_a = nullptr;
 	//AVFormatContext* ofmt_ctx_a = nullptr;
@@ -375,7 +375,7 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	in_stream = _formatCtx->streams[_audioStream];
 	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	if (!_ofmt_ctx_a) {
-		std::cout<<"Could not create output context\n";
+		//std::cout<<"Could not create output context\n";
 		ret = AVERROR_UNKNOWN;
 		throw OpenException("call avformat_alloc_output_context2 error", _ofmt_ctx_a);
 	}
@@ -605,29 +605,46 @@ EmediaImpl::~EmediaImpl(){
 }
 
 // 只读函数
-const string& EmediaImpl::where(){
+const string& EmediaImpl::where(){	
 	return _filePath;
 }
 
 int EmediaImpl::high(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return _formatCtx->streams[_videoStream]->codecpar->height;
 }
 int EmediaImpl::width(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return _formatCtx->streams[_videoStream]->codecpar->width;
 }
 
 int64_t EmediaImpl::frames(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return _formatCtx->streams[_videoStream]->nb_frames;
 }
 
 double EmediaImpl::fps(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
+
 	AVRational R = _formatCtx->streams[_videoStream]->avg_frame_rate;
 	return R.num == 0 | R.den == 0 ? 0.0 : (double)R.num / (double)R.den;
 }
 
-EmediaImpl::VideoType EmediaImpl::video_type(){
+EmediaImpl::VideoType EmediaImpl::video_type(){	
 	/*if (_videoTypeMap.find(_formatCtx->streams[_videoStream]->codecpar->codec_id) != _videoTypeMap.end)
 		return _videoTypeMap[_formatCtx->streams[_videoStream]->codecpar->codec_id];
 	else*/
+
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return NONE;
 }

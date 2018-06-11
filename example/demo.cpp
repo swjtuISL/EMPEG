@@ -14,13 +14,16 @@ using namespace std;
 int main(){
 	shared_ptr<Emedia> media = nullptr;
 	Emedia::VideoType type;
+	int height = 0;
 	try{
-		media = Emedia::generate("Wildlife.wmv");	//Wildlife	Wildlife.wmv
+		media = Emedia::generate("video_2018.mp4");	//Wildlife	Wildlife.wmv
 		
 		//media->demuxer("video.h264", "audio.aac");			//通过
-		//media->xaudio("2019.aac",1);
+		media->xaudio("2118.wma");
+
+		height = media->high();
 		//media->xvideo("2019.h264");							//通过
-		media->xyuv(  "2020.yuv",1);
+		//media->xyuv(  "2020.yuv",1);
 		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
 		//type= media->video_type();
 	}
@@ -55,7 +58,7 @@ int main(){
 		return 1;
 	}
 	
-	cout << "done!" << endl;
+	cout << "-end-!" << endl;
 	cin.get();	
 	return 0;
 }
