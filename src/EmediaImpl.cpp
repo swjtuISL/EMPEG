@@ -109,8 +109,8 @@ void EmediaImpl::creatStream(){
 
 bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型
-	if ( outFileType != "h264" )
-		throw OpenException("output file error", path);
+	/*if ( outFileType != "h264" )
+		throw OpenException("output file error", path);*/
 	
 	AVStream		*in_stream, *out_stream;
 	AVPacket		pkt;
@@ -123,8 +123,11 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	if (!_formatCtx){
 		_openFormatCtx();
 	}
-	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);
-	if (!_ofmt_ctx_v) {
+
+	AVCodec *vcodec = avcodec_find_decoder(_formatCtx->streams[_videoStream]->codecpar->codec_id);
+	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, vcodec->name, out_filename_v);	
+	if (!_ofmt_ctx_v)
+	{
 		std::cout<<"Could not create output context\n";
 		_ret = AVERROR_UNKNOWN;		
 		throw OpenException("call avformat_alloc_output_context2 error", _ofmt_ctx_v);
@@ -373,7 +376,11 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	}	
 
 	in_stream = _formatCtx->streams[_audioStream];
-	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
+
+	AVCodec *vcodec = avcodec_find_decoder(_formatCtx->streams[_audioStream]->codecpar->codec_id);
+	//avformat_alloc_output_context2初始化一个用于输出的AVFormatContext结构体
+	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, vcodec->name, out_filename_a);
+	//avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	if (!_ofmt_ctx_a) {
 		//std::cout<<"Could not create output context\n";
 		ret = AVERROR_UNKNOWN;
@@ -626,6 +633,8 @@ int64_t EmediaImpl::frames(){
 	if (!_formatCtx){
 		_openFormatCtx();
 	}
+
+	//_formatCtx->streams[_videoStream]->codec_info_nb_frames;
 	return _formatCtx->streams[_videoStream]->nb_frames;
 }
 

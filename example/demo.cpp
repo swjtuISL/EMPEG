@@ -11,18 +11,22 @@ using namespace std;
 #pragma comment(lib,"swscale.lib")
 #pragma comment(lib, "avutil.lib")
 
+
 int main(){
 	shared_ptr<Emedia> media = nullptr;
 	Emedia::VideoType type;
 	int height = 0;
+	int64_t fra = 0;
 	try{
-		media = Emedia::generate("video_2018.mp4");	//Wildlife	Wildlife.wmv
+		media = Emedia::generate("XVID_MPEG.avi");	//Wildlife	Wildlife.wmv
 		
 		//media->demuxer("video.h264", "audio.aac");			//通过
-		media->xaudio("2118.wma");
+		//media->xaudio("Wildlife.aac");
+		
+		//height = media->high();
+		fra = media->frames();
 
-		height = media->high();
-		//media->xvideo("2019.h264");							//通过
+		media->xvideo("MPEG_4_AAC");
 		//media->xyuv(  "2020.yuv",1);
 		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
 		//type= media->video_type();
