@@ -57,7 +57,7 @@ bool EmediaImpl::_open_(){
 	//--找视频流、音频流标准
 	_videoStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 	_audioStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
-	if (_videoStream + _audioStream<1)	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
+	if ((_formatCtx->nb_streams>1) && (_videoStream + _audioStream<1))	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
 
 	
 	return true;
@@ -343,7 +343,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	avformat_free_context(_ofmt_ctx_v);*/
 
 	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
+		std::cout<<"Error occurred.\n";
 		return false;
 	}	
 

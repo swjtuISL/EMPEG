@@ -29,6 +29,8 @@ public:
 	void openInit();
 	void findStream();
 	void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a);
+	void Muxer::writeFrame();
+	Muxer::Muxer(const std::string& videoPath, const std::string& mediaPath);
 	bool combineVideoAudio();
 
 private:
@@ -74,7 +76,7 @@ protected:
 public:
 	static std::shared_ptr<Emedia> generate(const std::string& path);
 	//Muxer _muxer;
-	static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath){
+	static bool combine(const std::string& mediaPath, const std::string& videoPath, const std::string& audioPath=""){
 		Muxer muxer(videoPath, audioPath, mediaPath);
 		muxer.combineVideoAudio();				//throw	
 		return 0;

@@ -22,7 +22,7 @@ public:
 	bool xaudio(const std::string& path, bool isDebug=0)   override;
 	bool xvideo(const std::string& path, bool isDebug = 0) override;
 	bool xyuv(const std::string& path, bool isDebug=0)     override;
-	//bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath) override;
+
 protected:
 	void _openFormatCtx();							//打开输入formatContext并find streams
 	bool _open_() override;

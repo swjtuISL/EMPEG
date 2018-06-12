@@ -18,18 +18,19 @@ int main(){
 	int height = 0;
 	int64_t fra = 0;
 	try{
-		media = Emedia::generate("XVID_MPEG.avi");	//Wildlife	Wildlife.wmv
-		
-		//media->demuxer("video.h264", "audio.aac");			//通过
-		//media->xaudio("Wildlife.aac");
+		//media = Emedia::generate("test.mp4");	//Wildlife	Wildlife.wmv
 		
 		//height = media->high();
-		fra = media->frames();
-
-		media->xvideo("MPEG_4_AAC");
-		//media->xyuv(  "2020.yuv",1);
-		//media->combine("2018.h264", "2018.aac", "combine.mp4");	
+		//fra = media->frames();
 		//type= media->video_type();
+		//int fps = media->fps();
+
+		//media->demuxer("AVC_AAC.264", "AVC_AAC.aac");			//通过
+		//media->xaudio("Wildlife.aac");
+		//media->xvideo("test2.264");
+		//media->xyuv(  "2020.yuv",1);
+		
+		media->combine("test_2.mp4","AVC_AAC.264");		
 	}
 	catch (OpenException except){
 		cout << except.what() << endl;
