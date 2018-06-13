@@ -29,6 +29,8 @@ public:
 	void openInit();
 	void findStream();
 	void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a);
+	void Muxer::writeFrame();
+	Muxer::Muxer(const std::string& videoPath, const std::string& mediaPath);
 	bool combineVideoAudio();
 
 private:
@@ -63,6 +65,7 @@ public:
 	virtual int64_t   frames() = 0;							// 视频帧数
 	virtual double    fps()    = 0;							// 视频帧率
 	virtual VideoType video_type() = 0;						// 视频格式
+	virtual bool	  isAudio() = 0;
 
 	virtual bool demuxer(const std::string& videoPath, const std::string& audioPath, bool isDebug = false) = 0;	//提取音屏和视频文件
 	virtual bool xaudio(const std::string& path, bool isDebug = false) = 0;	// 提取音频文件到指定路径
@@ -74,7 +77,7 @@ protected:
 public:
 	static std::shared_ptr<Emedia> generate(const std::string& path);
 	//Muxer _muxer;
-	static bool combine(const std::string& videoPath, const std::string& audioPath, const std::string& mediaPath){
+	static bool combine(const std::string& mediaPath, const std::string& videoPath, const std::string& audioPath=""){
 		Muxer muxer(videoPath, audioPath, mediaPath);
 		muxer.combineVideoAudio();				//throw	
 		return 0;

@@ -4,6 +4,9 @@
 #include<fstream>
 #include<hash_map>
 #include<windows.h>
+
+#include <stdint.h>
+#include<time.h>
 using namespace std;
 //--ffmpeg库和头文件
 #ifndef _FFMPEG_H
@@ -16,6 +19,21 @@ extern "C"{
 }
 #endif
 
+int av_usleep(unsigned usec)
+{
+#if HAVE_NANOSLEEP
+	struct timespec ts = { usec / 1000000, usec % 1000000 * 1000 };
+	while (nanosleep(&ts, &ts) < 0 && errno == EINTR);
+	return 0;
+#elif HAVE_USLEEP
+	return usleep(usec);
+#elif HAVE_SLEEP
+	Sleep(usec / 1000);
+	return 0;
+#else
+	return AVERROR(ENOSYS);
+#endif
+}
 
 EmediaImpl::EmediaImpl(const std::string& path){
 	av_register_all();								//初始化封装												
@@ -57,7 +75,7 @@ bool EmediaImpl::_open_(){
 	//--找视频流、音频流标准
 	_videoStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 	_audioStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
-	if (_videoStream + _audioStream<1)	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
+	if ((_formatCtx->nb_streams>1) && (_videoStream + _audioStream<1))	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
 
 	
 	return true;
@@ -109,8 +127,8 @@ void EmediaImpl::creatStream(){
 
 bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型
-	if ( outFileType != "h264" )
-		throw OpenException("output file error", path);
+	/*if ( outFileType != "h264" )
+		throw OpenException("output file error", path);*/
 	
 	AVStream		*in_stream, *out_stream;
 	AVPacket		pkt;
@@ -123,8 +141,13 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	if (!_formatCtx){
 		_openFormatCtx();
 	}
-	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);
-	if (!_ofmt_ctx_v) {
+	
+	AVCodec *vcodec = avcodec_find_decoder(_formatCtx->streams[_videoStream]->codecpar->codec_id);
+	avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, vcodec->name, NULL);			// vcodec->name
+	if (!_ofmt_ctx_v)
+		avformat_alloc_output_context2(&_ofmt_ctx_v, NULL, NULL, out_filename_v);			// vcodec->name
+	if (!_ofmt_ctx_v)
+	{
 		std::cout<<"Could not create output context\n";
 		_ret = AVERROR_UNKNOWN;		
 		throw OpenException("call avformat_alloc_output_context2 error", _ofmt_ctx_v);
@@ -196,6 +219,8 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	av_write_trailer(_ofmt_ctx_v);
 	
 	avformat_close_input(&_formatCtx);
+	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
+	//av_seek_frame(_formatCtx, _audioStream, _formatCtx->streams[_audioStream]->start_time, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
 	return true;
 }
 
@@ -340,19 +365,22 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	avformat_free_context(_ofmt_ctx_v);*/
 
 	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
+		std::cout<<"Error occurred.\n";
 		return false;
 	}	
 
 	avformat_close_input(&_formatCtx);
+	//av_seek_frame(ic, videoStream, pos, AVSEEK_FLAG_BACKWARD | AVSEEK_FLAG_FRAME);
+	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, 0);
+	//av_seek_frame(_formatCtx, _audioStream, _formatCtx->streams[_audioStream]->start_time, 0);
 	return true;
 }
 
 
 bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	std::string outFileType = (path.substr(path.find(".") + 1));	//获取文件类型,判断输入参数
-	if (outFileType != "aac")
-		throw OpenException("output file error", path);
+	/*if (outFileType != "aac")
+		throw OpenException("output file error", path);*/
 
 	//AVOutputFormat*  ofmt_a = nullptr;
 	//AVFormatContext* ofmt_ctx_a = nullptr;
@@ -373,9 +401,13 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	}	
 
 	in_stream = _formatCtx->streams[_audioStream];
+
+	AVCodec *vcodec = avcodec_find_decoder(_formatCtx->streams[_audioStream]->codecpar->codec_id);
+	//avformat_alloc_output_context2初始化一个用于输出的AVFormatContext结构体		vcodec->name
 	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
+	//avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	if (!_ofmt_ctx_a) {
-		std::cout<<"Could not create output context\n";
+		//std::cout<<"Could not create output context\n";
 		ret = AVERROR_UNKNOWN;
 		throw OpenException("call avformat_alloc_output_context2 error", _ofmt_ctx_a);
 	}
@@ -457,19 +489,20 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	avformat_free_context(_ofmt_ctx_a);*/
 
 	if (ret < 0 && ret != AVERROR_EOF) {
-		printf("Error occurred.\n");
+		if(isDebug)	std::cout<<"Error occurred.\n";
 		return false;
 	}
 
 	avformat_close_input(&_formatCtx);
-	cout << "-----xaudio end--------\n";
+	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, 0);
+	//av_seek_frame(_formatCtx, _audioStream, _formatCtx->streams[_audioStream]->start_time, 0);
+	if(isDebug)	cout << "-----xaudio end--------\n";
 	return true;
 }
 
 //--获取yuv
 bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
-	//-将解码后的frame以YUV240的格式写入文件
-	//	AVFrame* pFrame;
+	//-将解码后的frame以YUV240的格式写入文件	
 	ofstream ofile(path, ios::binary);	//yuv文件
 	if (!ofile){
 		throw OpenException("open file error call ofstream ofile", path);
@@ -492,8 +525,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			int err = avcodec_open2(_encodecCtx, codec, NULL);
 			if (err != 0){
 				char buf[1024] = { 0 };
-				av_strerror(err, buf, sizeof(buf));
-				//cout << buf << endl;	return 0;
+				av_strerror(err, buf, sizeof(buf));				
 				throw OpenException(buf);
 			}			
 		}
@@ -529,24 +561,33 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			av_packet_unref(pkt);				//释放空间 
 			continue;
 		}
-
-		//_decode(pkt, *frame);
+		
 		int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//bug
 		//int re = avcodec_send_packet(_encodecCtx, pkt);										//涉及解码器
 		if (re != 0){
 			char buf[512] = { 0 };
 			av_strerror(re, buf, sizeof(buf)-1);
-			if(isDebug)	std::cout << "avcodec_send_packet error! :" << buf << std::endl;
+			if(isDebug)		std::cout << "avcodec_send_packet error! :" << buf << std::endl;
 			continue;
-		}
-		/*if (re != 0){
-			throw DecodeExceptionPara("avcodec_send_packet error");
-		}*/
+		}		
 		
-		while(true){		//从线程中获取解码接口,一次send可能对应多次receive
-			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);			//#define EAGAIN          11
-			if (re != 0) break;			
-
+		//从线程中获取解码接口,一次send可能对应多次receive
+		while(true)		
+		{		
+			//avcodec_receive_packet
+			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);			//#define EAGAIN       11						
+			if (re == AVERROR(EAGAIN)){
+				//ff_yield();
+				//continue;
+				av_usleep(10000);
+				//Sleep(10000);
+				re = 0;
+				if (isDebug)	std::cout << "call avcodec_receive_frame return AVERROR(EAGAIN))\n";
+				//avcodec_flush_buffers(_formatCtx->streams[pkt->stream_index]->codec);				
+				cin.get();
+			}
+			if (re != 0)	break;
+			
 			sws_scale(img_convert_ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
 				pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);
 			//写YUV
@@ -560,6 +601,8 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	}
 	ofile.clear();
 	avformat_close_input(&_formatCtx);
+	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, 0);
+	//av_seek_frame(_formatCtx, _audioStream, _formatCtx->streams[_audioStream]->start_time, 0);
 	return true;
 }
 
@@ -600,34 +643,59 @@ EmediaImpl::~EmediaImpl(){
 
 	avformat_free_context(_ofmt_ctx_v);
 	avformat_free_context(_ofmt_ctx_a);
-
 	avformat_close_input(&_formatCtx);
 }
 
 // 只读函数
-const string& EmediaImpl::where(){
+const string& EmediaImpl::where(){	
 	return _filePath;
 }
 
 int EmediaImpl::high(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return _formatCtx->streams[_videoStream]->codecpar->height;
 }
 int EmediaImpl::width(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return _formatCtx->streams[_videoStream]->codecpar->width;
 }
 
 int64_t EmediaImpl::frames(){
-	return _formatCtx->streams[_videoStream]->nb_frames;
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
+
+	//nb_frames是不是帧数？？
+	int64_t frame_t = (fps()*(_formatCtx->duration / AV_TIME_BASE));
+	return _formatCtx->streams[_videoStream]->nb_frames != 0 ? _formatCtx->streams[_videoStream]->nb_frames:(fps()*(_formatCtx->duration / AV_TIME_BASE));
 }
 
 double EmediaImpl::fps(){
-	AVRational R = _formatCtx->streams[_videoStream]->avg_frame_rate;
+	if (!_formatCtx){
+		_openFormatCtx();
+	}		
+	AVRational R = _formatCtx->streams[_videoStream]->avg_frame_rate;	
 	return R.num == 0 | R.den == 0 ? 0.0 : (double)R.num / (double)R.den;
 }
 
-EmediaImpl::VideoType EmediaImpl::video_type(){
+EmediaImpl::VideoType EmediaImpl::video_type(){	
 	/*if (_videoTypeMap.find(_formatCtx->streams[_videoStream]->codecpar->codec_id) != _videoTypeMap.end)
 		return _videoTypeMap[_formatCtx->streams[_videoStream]->codecpar->codec_id];
 	else*/
+
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
 	return NONE;
+}
+
+bool EmediaImpl::isAudio(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
+	return _audioStream > -1 ? true : false;
 }
