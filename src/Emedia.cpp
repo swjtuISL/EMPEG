@@ -76,8 +76,7 @@ bool Muxer::combineVideoAudio(){
 	//Open output file  
 	if (!(_ofmt->flags & AVFMT_NOFILE)) {
 		if (avio_open(&_ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE) < 0) {
-			throw OpenException("Could not open output file");
-			//printf("Could not open output file '%s'", out_filename);
+			throw OpenException("Could not open output file");			
 		}
 	}
 
@@ -283,9 +282,7 @@ void Muxer::writeFrame(int64_t& cur_pts_v, int64_t& cur_pts_a)
 					}
 				} while (av_read_frame(ifmt_ctx, &pkt) >= 0);
 			}
-			else{
-				break;
-			}
+			else	break;			
 		}
 
 		//FIX:Bitstream Filter  

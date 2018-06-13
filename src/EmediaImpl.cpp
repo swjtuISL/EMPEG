@@ -545,9 +545,11 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	struct SwsContext *img_convert_ctx = NULL;
 	img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
 	int nn = 0;
+
+	//--读取frame，并解码
 	while (1)
 	{
-		AVPacket* pkt = av_packet_alloc();
+		AVPacket* pkt = av_packet_alloc();		
 		AVFrame* frame = av_frame_alloc();
 		
 		int err = av_read_frame(_formatCtx, pkt);
@@ -560,10 +562,10 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 		if (pkt->stream_index != _videoStream){
 			av_packet_unref(pkt);				//释放空间 
 			continue;
-		}
-		
+		}		
 		int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//bug
-		//int re = avcodec_send_packet(_encodecCtx, pkt);										//涉及解码器
+		//int re = avcodec_send_packet(_encodecCtx, pkt);							
+		av_packet_unref(pkt);	
 		if (re != 0){
 			char buf[512] = { 0 };
 			av_strerror(re, buf, sizeof(buf)-1);
@@ -571,7 +573,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			continue;
 		}		
 		
-		//从线程中获取解码接口,一次send可能对应多次receive
+		//开始解码,一次send可能对应多次receive
 		while(true)		
 		{		
 			//avcodec_receive_packet
@@ -579,12 +581,12 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			if (re == AVERROR(EAGAIN)){
 				//ff_yield();
 				//continue;
-				av_usleep(10000);
+				//av_usleep(100);
 				//Sleep(10000);
 				re = 0;
 				if (isDebug)	std::cout << "call avcodec_receive_frame return AVERROR(EAGAIN))\n";
-				//avcodec_flush_buffers(_formatCtx->streams[pkt->stream_index]->codec);				
-				cin.get();
+				//avcodec_flush_buffers(_formatCtx->streams[pkt->stream_index]->codec);								
+				break;
 			}
 			if (re != 0)	break;
 			
@@ -596,9 +598,12 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			ofile.write((char*)pFrameYUV->data[2], (pCodecCtx->width)*(pCodecCtx->height) / 4);			
 			if (isDebug)	std::cout << nn++ << std::endl; 
 		}		
+
 		av_packet_unref(pkt);	//释放空间 		
 		Sleep(25);
 	}
+
+
 	ofile.clear();
 	avformat_close_input(&_formatCtx);
 	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, 0);
@@ -668,7 +673,7 @@ int64_t EmediaImpl::frames(){
 	if (!_formatCtx){
 		_openFormatCtx();
 	}
-
+	
 	//nb_frames是不是帧数？？
 	int64_t frame_t = (fps()*(_formatCtx->duration / AV_TIME_BASE));
 	return _formatCtx->streams[_videoStream]->nb_frames != 0 ? _formatCtx->streams[_videoStream]->nb_frames:(fps()*(_formatCtx->duration / AV_TIME_BASE));
