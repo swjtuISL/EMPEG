@@ -4,6 +4,9 @@
 #include<fstream>
 #include<hash_map>
 #include<windows.h>
+
+#include <stdint.h>
+#include<time.h>
 using namespace std;
 //--ffmpeg库和头文件
 #ifndef _FFMPEG_H
@@ -16,6 +19,21 @@ extern "C"{
 }
 #endif
 
+int av_usleep(unsigned usec)
+{
+#if HAVE_NANOSLEEP
+	struct timespec ts = { usec / 1000000, usec % 1000000 * 1000 };
+	while (nanosleep(&ts, &ts) < 0 && errno == EINTR);
+	return 0;
+#elif HAVE_USLEEP
+	return usleep(usec);
+#elif HAVE_SLEEP
+	Sleep(usec / 1000);
+	return 0;
+#else
+	return AVERROR(ENOSYS);
+#endif
+}
 
 EmediaImpl::EmediaImpl(const std::string& path){
 	av_register_all();								//初始化封装												
@@ -484,8 +502,7 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 
 //--获取yuv
 bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
-	//-将解码后的frame以YUV240的格式写入文件
-	//	AVFrame* pFrame;
+	//-将解码后的frame以YUV240的格式写入文件	
 	ofstream ofile(path, ios::binary);	//yuv文件
 	if (!ofile){
 		throw OpenException("open file error call ofstream ofile", path);
@@ -544,8 +561,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			av_packet_unref(pkt);				//释放空间 
 			continue;
 		}
-
-		//_decode(pkt, *frame);
+		
 		int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//bug
 		//int re = avcodec_send_packet(_encodecCtx, pkt);										//涉及解码器
 		if (re != 0){
@@ -553,15 +569,25 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			av_strerror(re, buf, sizeof(buf)-1);
 			if(isDebug)		std::cout << "avcodec_send_packet error! :" << buf << std::endl;
 			continue;
-		}
-		/*if (re != 0){
-			throw DecodeExceptionPara("avcodec_send_packet error");
-		}*/
+		}		
 		
-		while(true){		//从线程中获取解码接口,一次send可能对应多次receive
-			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);			//#define EAGAIN          11
-			if (re != 0) break;			
-
+		//从线程中获取解码接口,一次send可能对应多次receive
+		while(true)		
+		{		
+			//avcodec_receive_packet
+			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);			//#define EAGAIN       11						
+			if (re == AVERROR(EAGAIN)){
+				//ff_yield();
+				//continue;
+				av_usleep(10000);
+				//Sleep(10000);
+				re = 0;
+				if (isDebug)	std::cout << "call avcodec_receive_frame return AVERROR(EAGAIN))\n";
+				//avcodec_flush_buffers(_formatCtx->streams[pkt->stream_index]->codec);				
+				cin.get();
+			}
+			if (re != 0)	break;
+			
 			sws_scale(img_convert_ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
 				pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);
 			//写YUV
@@ -644,6 +670,7 @@ int64_t EmediaImpl::frames(){
 	}
 
 	//nb_frames是不是帧数？？
+	int64_t frame_t = (fps()*(_formatCtx->duration / AV_TIME_BASE));
 	return _formatCtx->streams[_videoStream]->nb_frames != 0 ? _formatCtx->streams[_videoStream]->nb_frames:(fps()*(_formatCtx->duration / AV_TIME_BASE));
 }
 
@@ -664,4 +691,11 @@ EmediaImpl::VideoType EmediaImpl::video_type(){
 		_openFormatCtx();
 	}
 	return NONE;
+}
+
+bool EmediaImpl::isAudio(){
+	if (!_formatCtx){
+		_openFormatCtx();
+	}
+	return _audioStream > -1 ? true : false;
 }
