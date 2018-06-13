@@ -16,7 +16,7 @@ public:
 	int width() override;
 	int64_t frames()  override;
 	double  fps()	  override;
-	bool	isAudio() override;
+	bool	audio_exists() override;
 	VideoType video_type() override;
 	
 
@@ -26,7 +26,7 @@ public:
 	bool xyuv(const std::string& path, bool isDebug=0)     override;
 
 protected:
-	void _openFormatCtx();							//´ò¿ªÊäÈëformatContext²¢find streams
+	void _openFormatCtx();							//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½formatContextï¿½ï¿½find streams
 	bool _open_() override;
 	bool _read_frame(AVPacket& pkt);
 	bool _decode    (AVPacket* pkt, AVFrame& yuv);
@@ -34,18 +34,18 @@ protected:
 	void creatStream();
 	//bool _yuv_rgb();
 private:
-	std::string _filePath;								 //Ô´ÎÄ¼þ
-	std::string  _fileType;						 //ÎÄ¼þÀàÐÍ(mp4..)
+	std::string _filePath;								 //Ô´ï¿½Ä¼ï¿½
+	std::string  _fileType;						 //ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½(mp4..)
 	
-	AVFormatContext*   _formatCtx  = nullptr;               //Ô´ÎÄ¼þ¸ñÊ½
-	AVFormatContext*   _ofmt_ctx_v = nullptr;              //Êä³öÊÓÆµ¸ñÊ½
-	AVFormatContext*   _ofmt_ctx_a = nullptr;              //Êä³öÒôÆµ¸ñÊ½
+	AVFormatContext*   _formatCtx  = nullptr;               //Ô´ï¿½Ä¼ï¿½ï¿½ï¿½Ê½
+	AVFormatContext*   _ofmt_ctx_v = nullptr;              //ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½Ê½
+	AVFormatContext*   _ofmt_ctx_a = nullptr;              //ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½Ê½
 	AVOutputFormat*    _ofmt_v = nullptr;
 	AVOutputFormat*    _ofmt_a = nullptr;
 	AVCodecContext*    _encodecCtx = nullptr;
    
 	int _videoStream; 
-	int _audioStream;								 //ÒôÊÓÆµË÷Òý£¬¶ÁÈ¡Ê±Çø·ÖÒôÊÓÆµ
+	int _audioStream;								 //ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµ
 	int _flag;
 	int _ret = 0;
     //static hash_map<AVCodecID, VideoType> _videoTypeMap;

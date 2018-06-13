@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include<time.h>
 using namespace std;
-//--ffmpeg¿âºÍÍ·ÎÄ¼þ
+//--ffmpegï¿½ï¿½ï¿½Í·ï¿½Ä¼ï¿½
 #ifndef _FFMPEG_H
 #define _FFMPEG_H
 extern "C"{
@@ -36,9 +36,9 @@ int av_usleep(unsigned usec)
 }
 
 EmediaImpl::EmediaImpl(const std::string& path){
-	av_register_all();								//³õÊ¼»¯·â×°												
-	avformat_network_init();						//³õÊ¼»¯ÍøÂç¿â £¨¿ÉÒÔ´ò¿ªrtsp rtmp http Ð­ÒéµÄÁ÷Ã½ÌåÊÓÆµ£©
-	avcodec_register_all();							//×¢²á½âÂëÆ÷
+	av_register_all();								//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½×°												
+	avformat_network_init();						//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½rtsp rtmp http Ð­ï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½
+	avcodec_register_all();							//×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	_filePath = path;
 	_videoStream = -1;
@@ -46,7 +46,7 @@ EmediaImpl::EmediaImpl(const std::string& path){
 	_flag = -1;
 	//formatCtx->filename
 	
-	_fileType = (path.substr(path.find(".") + 1));	//»ñÈ¡ÎÄ¼þÀàÐÍ
+	_fileType = (path.substr(path.find(".") + 1));	//ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	/*hash_map<AVCodecID, VideoType> _videoTypeMap;
 	_videoTypeMap[AV_CODEC_ID_H264] = H264;
@@ -54,16 +54,16 @@ EmediaImpl::EmediaImpl(const std::string& path){
 	_videoTypeMap[AV_CODEC_ID_JPEG2000] = JPEG2000;*/
 }
 
-//¼ì²é´ò¿ªÊÇ·ñ³É¹¦
+//ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½É¹ï¿½
 bool EmediaImpl::_open_(){	
-	AVDictionary *opts = NULL;						//²ÎÊýÉèÖÃ
-	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //ÉèÖÃrtspÁ÷ÒÑtcpÐ­Òé´ò¿ª
-	av_dict_set(&opts, "max_delay", "500", 0);		//ÍøÂçÑÓÊ±Ê±¼ä
+	AVDictionary *opts = NULL;						//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //ï¿½ï¿½ï¿½ï¿½rtspï¿½ï¿½ï¿½ï¿½tcpÐ­ï¿½ï¿½ï¿½
+	av_dict_set(&opts, "max_delay", "500", 0);		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ê±ï¿½ï¿½
 
 	const char *pathTemp = _filePath.c_str();
 	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
 	if (_flag != 0){
-		char buf[512] = { 0 };						//´æ·Å´íÎóÐÅÏ¢		
+		char buf[512] = { 0 };						//ï¿½ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢		
 		av_strerror(_flag, buf, sizeof(buf)-1);		
 		throw OpenException("avformat_open_input error:"+std::string(buf));	
 	}
@@ -72,7 +72,7 @@ bool EmediaImpl::_open_(){
 		throw OpenException("avformat_find_stream_info error;file is: " + _filePath);
 	}
 	
-	//--ÕÒÊÓÆµÁ÷¡¢ÒôÆµÁ÷±ê×¼
+	//--ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½×¼
 	_videoStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
 	_audioStream = av_find_best_stream(_formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
 	if ((_formatCtx->nb_streams>1) && (_videoStream + _audioStream<1))	throw StreamExceptionPara("avformat_find_stream_info error file is:" + _filePath);
@@ -82,15 +82,15 @@ bool EmediaImpl::_open_(){
 }
 
 void EmediaImpl::_openFormatCtx(){
-	AVDictionary *opts = NULL;						//²ÎÊýÉèÖÃ
-	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //ÉèÖÃrtspÁ÷ÒÑtcpÐ­Òé´ò¿ª
-	av_dict_set(&opts, "max_delay", "500", 0);		//ÍøÂçÑÓÊ±Ê±¼ä
+	AVDictionary *opts = NULL;						//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //ï¿½ï¿½ï¿½ï¿½rtspï¿½ï¿½ï¿½ï¿½tcpÐ­ï¿½ï¿½ï¿½
+	av_dict_set(&opts, "max_delay", "500", 0);		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ê±ï¿½ï¿½
 
 	const char *pathTemp = _filePath.c_str();
 	_flag = avformat_open_input(&_formatCtx, pathTemp, 0, &opts);
 
 	if (_flag != 0){
-		char buf[1024] = { 0 };		//´æ·Å´íÎóÐÅÏ¢
+		char buf[1024] = { 0 };		//ï¿½ï¿½Å´ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 		av_strerror(_flag, buf, sizeof(buf)-1);
 		throw OpenException("EmediaImpl::_open_()->avformat_open_input"+std::string( buf));
 	}
@@ -126,7 +126,7 @@ void EmediaImpl::creatStream(){
 }
 
 bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
-	std::string outFileType = (path.substr(path.find(".") + 1));	//»ñÈ¡ÎÄ¼þÀàÐÍ
+	std::string outFileType = (path.substr(path.find(".") + 1));	//ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 	/*if ( outFileType != "h264" )
 		throw OpenException("output file error", path);*/
 	
@@ -134,8 +134,8 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	AVPacket		pkt;
 	AVBitStreamFilterContext* h264bsfc = nullptr;
 	int		 i = 0;
-	int		 frame_index = 0;								//¶ÁÈ¡µÄpacket¸öÊý
-	//Output---ofmt_ctx_v´æÊä³öÎÄ¼þ¸ñÊ½
+	int		 frame_index = 0;								//ï¿½ï¿½È¡ï¿½ï¿½packetï¿½ï¿½ï¿½ï¿½
+	//Output---ofmt_ctx_vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê½
 	const char* out_filename_v = path.c_str();
 
 	if (!_formatCtx){
@@ -165,14 +165,14 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 		}
 	}
 
-	//Write file header,ÓÐÎÊÌâ,	_ofmt_ctx_vÊä³ö¸ñÊ½
+	//Write file header,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,	_ofmt_ctx_vï¿½ï¿½ï¿½ï¿½ï¿½Ê½
 	if (avformat_write_header(_ofmt_ctx_v, NULL) < 0) {
 		std::cout<<"Error occurred when opening video output file\n";
 		throw WriteExceptionPara("avformat_write_header fail", _ofmt_ctx_v);
 	}
 
 //#if USE_H264BSF
-	//mp4ºÍflv¸ñÊ½ÐèÒª´Ë²Ù×÷
+	//mp4ï¿½ï¿½flvï¿½ï¿½Ê½ï¿½ï¿½Òªï¿½Ë²ï¿½ï¿½ï¿½
 	
 	if (_fileType == "mp4" || _fileType == "flv")
 		h264bsfc = av_bitstream_filter_init("h264_mp4toannexb");
@@ -224,7 +224,7 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	return true;
 }
 
-//----ÌáÈ¡ÒôÆµºÍÊÓÆµ
+//----ï¿½ï¿½È¡ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Æµ
 bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioPath,bool isDebug){		
 	AVPacket pkt;
 	int ret = 0, i = 0;
@@ -233,7 +233,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	AVFormatContext *ofmt_ctx;
 	AVStream *in_stream = nullptr;
 	AVStream *out_stream = nullptr;
-	//Output---ofmt_ctx_v´æÊä³öÎÄ¼þ¸ñÊ½
+	//Output---ofmt_ctx_vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê½
 	const char* out_filename_v = videoPath.c_str();
 	const char* out_filename_a = audioPath.c_str();
 	AVBitStreamFilterContext* h264bsfc = nullptr;
@@ -301,7 +301,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 		}
 	}
 
-	//Write file header,ÓÐÎÊÌâ
+	//Write file header,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (avformat_write_header(_ofmt_ctx_v, NULL) < 0) {		
 		throw WriteExceptionPara("call avformat_write_header fail", _ofmt_ctx_v);
 	}
@@ -356,7 +356,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 	av_write_trailer(_ofmt_ctx_a);
 	av_write_trailer(_ofmt_ctx_v);
 //end:	
-	//ÓÉÎö¹¹º¯ÊýÊÍ·ÅÄÚ´æ
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½Ú´ï¿½
 	/*if (_ofmt_ctx_a && !(_ofmt_a->flags & AVFMT_NOFILE))
 		avio_close(_ofmt_ctx_a->pb);
 	if (_ofmt_ctx_v && !(_ofmt_v->flags & AVFMT_NOFILE))
@@ -378,7 +378,7 @@ bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioP
 
 
 bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
-	std::string outFileType = (path.substr(path.find(".") + 1));	//»ñÈ¡ÎÄ¼þÀàÐÍ,ÅÐ¶ÏÊäÈë²ÎÊý
+	std::string outFileType = (path.substr(path.find(".") + 1));	//ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	/*if (outFileType != "aac")
 		throw OpenException("output file error", path);*/
 
@@ -391,11 +391,11 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	AVStream* out_stream = nullptr;
 
 	int ret = 0, i = 0;
-	int frame_index = 0;						//Í³¼Æ¶ÁÈ¡µÄpacketµÄ¸öÊý
-	//Output---ofmt_ctx_v´æÊä³öÎÄ¼þ¸ñÊ½
+	int frame_index = 0;						//Í³ï¿½Æ¶ï¿½È¡ï¿½ï¿½packetï¿½Ä¸ï¿½ï¿½ï¿½
+	//Output---ofmt_ctx_vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê½
 	const char* out_filename_a = path.c_str();
 
-	//--ÖØÐÂ´ò¿ª_formatCtx
+	//--ï¿½ï¿½ï¿½Â´ï¿½_formatCtx
 	if (!_formatCtx){
 		_openFormatCtx();
 	}	
@@ -403,7 +403,7 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	in_stream = _formatCtx->streams[_audioStream];
 
 	AVCodec *vcodec = avcodec_find_decoder(_formatCtx->streams[_audioStream]->codecpar->codec_id);
-	//avformat_alloc_output_context2³õÊ¼»¯Ò»¸öÓÃÓÚÊä³öµÄAVFormatContext½á¹¹Ìå		vcodec->name
+	//avformat_alloc_output_context2ï¿½ï¿½Ê¼ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½AVFormatContextï¿½á¹¹ï¿½ï¿½		vcodec->name
 	avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	//avformat_alloc_output_context2(&_ofmt_ctx_a, NULL, NULL, out_filename_a);
 	if (!_ofmt_ctx_a) {
@@ -443,7 +443,7 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 		}
 	}
 
-	//Write file header,ÓÐÎÊÌâ
+	//Write file header,ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (avformat_write_header(_ofmt_ctx_a, NULL) < 0) {
 		printf("Error occurred when opening audio output file\n");
 		throw WriteExceptionPara("call avformat_write_header error", _ofmt_ctx_a);;
@@ -500,10 +500,10 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	return true;
 }
 
-//--»ñÈ¡yuv
+//--ï¿½ï¿½È¡yuv
 bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
-	//-½«½âÂëºóµÄframeÒÔYUV240µÄ¸ñÊ½Ð´ÈëÎÄ¼þ	
-	ofstream ofile(path, ios::binary);	//yuvÎÄ¼þ
+	//-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½frameï¿½ï¿½YUV240ï¿½Ä¸ï¿½Ê½Ð´ï¿½ï¿½ï¿½Ä¼ï¿½	
+	ofstream ofile(path, ios::binary);	//yuvï¿½Ä¼ï¿½
 	if (!ofile){
 		throw OpenException("open file error call ofstream ofile", path);
 	}
@@ -512,7 +512,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 		_openFormatCtx();
 	}
 
-	//--ÒôÊÓÆµ½âÂëÆ÷´´½¨¼°´ò¿ª
+	//--ï¿½ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	for (int i = 0; i < _formatCtx->nb_streams; i++)
 	{
 		_encodecCtx = _formatCtx->streams[i]->codec;
@@ -537,16 +537,16 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	out_buffer = (unsigned char *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 1));
 	av_image_fill_arrays(pFrameYUV->data, pFrameYUV->linesize, out_buffer, AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 1);
 
-	//ÉèÖÃ¸ñÊ½
+	//ï¿½ï¿½ï¿½Ã¸ï¿½Ê½
 	//out_buffer = new uint8_t[avpicture_get_size(PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height)];
 	//avpicture_fill( (AVPicture *)pFrameYUV, out_buffer, PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);
 
-	//--×ª»»
+	//--×ªï¿½ï¿½
 	struct SwsContext *img_convert_ctx = NULL;
 	img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, pCodecCtx->width, pCodecCtx->height, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
 	int nn = 0;
 
-	//--¶ÁÈ¡frame£¬²¢½âÂë
+	//--ï¿½ï¿½È¡frameï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	while (1)
 	{
 		AVPacket* pkt = av_packet_alloc();		
@@ -555,12 +555,12 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 		int err = av_read_frame(_formatCtx, pkt);
 		if (pkt->size == 0){
 			if (isDebug)
-				std::cout << "------------¶ÁÍêÈ«²¿µÄpkt---------\n";
+				std::cout << "------------ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½pkt---------\n";
 			break;
 		}
-		//²»ÊÇÊÓÆµpacket,*********************************
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµpacket,*********************************
 		if (pkt->stream_index != _videoStream){
-			av_packet_unref(pkt);				//ÊÍ·Å¿Õ¼ä 
+			av_packet_unref(pkt);				//ï¿½Í·Å¿Õ¼ï¿½ 
 			continue;
 		}		
 		int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//bug
@@ -573,7 +573,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			continue;
 		}		
 		
-		//¿ªÊ¼½âÂë,Ò»´Îsend¿ÉÄÜ¶ÔÓ¦¶à´Îreceive
+		//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½,Ò»ï¿½ï¿½sendï¿½ï¿½ï¿½Ü¶ï¿½Ó¦ï¿½ï¿½ï¿½receive
 		while(true)		
 		{		
 			//avcodec_receive_packet
@@ -599,7 +599,7 @@ bool EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			if (isDebug)	std::cout << nn++ << std::endl; 
 		}		
 
-		av_packet_unref(pkt);	//ÊÍ·Å¿Õ¼ä 		
+		av_packet_unref(pkt);	//ï¿½Í·Å¿Õ¼ï¿½ 		
 		Sleep(25);
 	}
 
@@ -622,10 +622,10 @@ bool EmediaImpl::_read_frame(AVPacket& pkt){
 	return true;
 }
 
-//----½âÂëÒ»¸öpacket
+//----ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½packet
 bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){	
 	_formatCtx->streams[pkt->stream_index]->codecpar;
-	int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//Éæ¼°½âÂëÆ÷
+	int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//ï¿½æ¼°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (re != 0){		
 		throw DecodeExceptionPara("avcodec_send_packet error");
 	}
@@ -651,7 +651,7 @@ EmediaImpl::~EmediaImpl(){
 	avformat_close_input(&_formatCtx);
 }
 
-// Ö»¶Áº¯Êý
+// Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 const string& EmediaImpl::where(){	
 	return _filePath;
 }
@@ -674,7 +674,7 @@ int64_t EmediaImpl::frames(){
 		_openFormatCtx();
 	}
 	
-	//nb_framesÊÇ²»ÊÇÖ¡Êý£¿£¿
+	//nb_framesï¿½Ç²ï¿½ï¿½ï¿½Ö¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	int64_t frame_t = (fps()*(_formatCtx->duration / AV_TIME_BASE));
 	return _formatCtx->streams[_videoStream]->nb_frames != 0 ? _formatCtx->streams[_videoStream]->nb_frames:(fps()*(_formatCtx->duration / AV_TIME_BASE));
 }
@@ -698,7 +698,7 @@ EmediaImpl::VideoType EmediaImpl::video_type(){
 	return NONE;
 }
 
-bool EmediaImpl::isAudio(){
+bool EmediaImpl::audio_exists(){
 	if (!_formatCtx){
 		_openFormatCtx();
 	}
