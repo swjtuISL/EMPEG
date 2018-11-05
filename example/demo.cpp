@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <string>
 #include <memory>
@@ -22,8 +21,8 @@ int main(){
 		media = Emedia::generate("../../test/mouse_856_480.mkv");	
 		
 		//height = media->high();
-		//fra    = media->frames();
-		//type   = media->video_type();
+		//fra = media->frames();
+		//type= media->video_type();
 		//int fps = media->fps();
 		//bool audio=media->audio_exists();
 

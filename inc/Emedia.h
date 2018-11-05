@@ -4,7 +4,7 @@
 #include <memory>
 /*
 enum VideoType{
-	NONE,	//ÎÞ
+	NONE,	//ï¿½ï¿½
 	H264,
 	MPEG4,
 	JPEG2000
@@ -83,7 +83,7 @@ public:
 		return 0;
 	};
 
-	static void getFileType(const std::string& filename,std::string& fileType){	//»ñÈ¡ÎÄ¼þÀàÐÍ
+	static void getFileType(const std::string& filename,std::string& fileType){	//ï¿½ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 		int loc = filename.find(".");
 		fileType = filename.substr(loc + 1);
 		//std::string fileType(filename.substr(loc + 1));		
