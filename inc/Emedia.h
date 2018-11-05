@@ -65,12 +65,12 @@ public:
 	virtual int64_t   frames() = 0;							// 视频帧数
 	virtual double    fps()    = 0;							// 视频帧率
 	virtual VideoType video_type() = 0;						// 视频格式
-	virtual bool	  isAudio() = 0;
+	virtual bool	  audio_exists() = 0;
 
 	virtual bool demuxer(const std::string& videoPath, const std::string& audioPath, bool isDebug = 0) = 0;	//提取音屏和视频文件
 	virtual bool xaudio(const std::string& path, bool isDebug = 0) = 0;	// 提取音频文件到指定路径
 	virtual bool xvideo(const std::string& path, bool isDebug = 0) = 0;	// 提取视频文件到指定路径
-	virtual bool xyuv(  const std::string& path, bool isDebug=0) = 0;	// 提取视频文件中的yuv
+	virtual int xyuv(  const std::string& path, bool isDebug=0) = 0;	// 提取视频文件中的yuv
 	
 protected:
 	virtual bool _open_()=0;	

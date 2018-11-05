@@ -16,14 +16,14 @@ public:
 	int width() override;
 	int64_t frames()  override;
 	double  fps()	  override;
-	bool	isAudio() override;
+	bool	audio_exists() override;
 	VideoType video_type() override;
 	
 
 	bool demuxer(const std::string& videoPath, const std::string& audioPath, bool isDebug = 0);
 	bool xaudio(const std::string& path, bool isDebug=0)   override;
 	bool xvideo(const std::string& path, bool isDebug = 0) override;
-	bool xyuv(const std::string& path, bool isDebug=0)     override;
+	int xyuv(const std::string& path,bool isDebug=0)     override;
 
 protected:
 	void _openFormatCtx();							//打开输入formatContext并find streams
