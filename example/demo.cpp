@@ -18,7 +18,7 @@ int main(){
 	int64_t fra = 0;
 	int numFrame=0;
 	try{
-		media = Emedia::generate("../../test/mouse_768_400_123F.flv");	
+		media = Emedia::generate("../../input/768_432_30F.mp4");	
 		
 		//height = media->high();
 		//fra = media->frames();
@@ -30,7 +30,7 @@ int main(){
 		//media->xvideo("czl_0.mpeg");
 		//media->demuxer("czl_1.264", "czl_1.aac");			//Í¨¹ý
 		//media->xaudio("czl_2.aac");		
-		numFrame=media->xyuv("..\\..\\test\\mouse_768_400_123F.yuv", 1);
+		numFrame=media->xyuv("../../output/768_432_30F.yuv", 1);
 
 		//media->combine("czl.avi","czl.264");		
 	}

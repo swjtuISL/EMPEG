@@ -28,8 +28,8 @@ public:
 protected:
 	void _openFormatCtx();							//������formatContext��find streams
 	bool _open_() override;
-	bool _read_frame(AVPacket& pkt);
-	bool _decode    (AVPacket* pkt, AVFrame& yuv);
+	bool _read_frame(AVPacket* pkt);
+	bool _decode    (AVPacket* pkt, AVFrame* yuv);
 
 	void creatStream();
 	//bool _yuv_rgb();

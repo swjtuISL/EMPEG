@@ -1,6 +1,7 @@
 Debug/
 ffmpeg/
-test/
+input/
+output/
 *.opensdf
 *.ilk
 *.pdb

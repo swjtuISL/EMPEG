@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include<time.h>
 using namespace std;
-//--ffmpeg库和头文件
+// ffmpeg库和头文件
 #ifndef _FFMPEG_H
 #define _FFMPEG_H
 extern "C"{
@@ -54,7 +54,7 @@ EmediaImpl::EmediaImpl(const std::string& path){
 	_videoTypeMap[AV_CODEC_ID_JPEG2000] = JPEG2000;*/
 }
 
-//检查打开是否成功
+// 检查打开是否成功
 bool EmediaImpl::_open_(){	
 	AVDictionary *opts = NULL;						//参数设置
 	av_dict_set(&opts, "rtsp_transport", "tcp", 0); //设置rtsp流已tcp协议打开
@@ -224,7 +224,7 @@ bool EmediaImpl::xvideo(const std::string& path,bool isDebug){
 	return true;
 }
 
-//----提取音频和视频
+// 提取音频和视频
 bool EmediaImpl::demuxer(const std::string& videoPath, const std::string& audioPath,bool isDebug){		
 	AVPacket pkt;
 	int ret = 0, i = 0;
@@ -500,9 +500,9 @@ bool EmediaImpl::xaudio(const std::string& path, bool isDebug){
 	return true;
 }
 
-//--获取yuv
+// 获取yuv
 int EmediaImpl::xyuv(const std::string& path,bool isDebug){
-	//-将解码后的frame以YUV240的格式写入文件
+	// 将解码后的frame以YUV240的格式写入文件
 	ofstream ofile(path, ios::binary);	//yuv文件
 	int numFrame = 0;					//解码得到的帧注
 	if (!ofile){
@@ -513,7 +513,7 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 		_openFormatCtx();
 	}
 
-	//--音视频解码器创建及打开	
+	// 音视频解码器创建及打开	
 	for (int i = 0; i < _formatCtx->nb_streams; i++)
 	{
 		_encodecCtx = _formatCtx->streams[i]->codec;
@@ -523,10 +523,10 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			if (!codec){				
 				throw OpenException("find decoder call avcodec_find_decoder", codec);
 			}			 
-			int err = avcodec_open2(_encodecCtx, codec, NULL);			 
-			if (err != 0){
+			int ret = avcodec_open2(_encodecCtx, codec, NULL);			 
+			if (ret != 0){
 				char buf[1024] = { 0 };
-				av_strerror(err, buf, sizeof(buf));				
+				av_strerror(ret, buf, sizeof(buf));				
 				throw OpenException(buf);
 			}			
 		}
@@ -535,8 +535,8 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	AVFrame* pFrameYUV = av_frame_alloc();
 	uint8_t* out_buffer;
 	AVCodecContext* pCodecCtx = _formatCtx->streams[_videoStream]->codec;
-	int dstW = floor(pCodecCtx->width / 16) * 16;
-	int dstH = floor(pCodecCtx->height / 16) * 16;
+	int dstW = round(pCodecCtx->width / 16) * 16;
+	int dstH = round(pCodecCtx->height / 16) * 16;
 
 	//out_buffer = (unsigned char *)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 1));
 	//av_image_fill_arrays(pFrameYUV->data, pFrameYUV->linesize, out_buffer, AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height, 1);
@@ -547,18 +547,21 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	//out_buffer = new uint8_t[avpicture_get_size(PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height)];
 	//avpicture_fill( (AVPicture *)pFrameYUV, out_buffer, PIX_FMT_RGB24, pCodecCtx->width, pCodecCtx->height);
 
-	//--转换
+	// 转换
 	struct SwsContext *img_convert_ctx = NULL;	
 	img_convert_ctx = sws_getContext(pCodecCtx->width, pCodecCtx->height, pCodecCtx->pix_fmt, dstW, dstH, AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
 	
-	//--读取frame，并解码
+	// 读取frame，并解码
+	int ret = 0;	
+	int re = 0;
+	AVFrame* frame = av_frame_alloc();
+	AVPacket* pkt = av_packet_alloc();
+	bool isLast = false;
 	while (true)
-	{
-		AVPacket* pkt = av_packet_alloc();		
-		AVFrame* frame = av_frame_alloc();
-		
-		int err = av_read_frame(_formatCtx, pkt);
-		//清除缓存		
+	{	
+		if (ret = av_read_frame(_formatCtx, pkt) != 0)
+			isLast = true;
+		// 清除缓存		
 		/*
 		if (pkt->size == 0)
 		{
@@ -600,51 +603,51 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 			if (isDebug)	std::cout << "------------读完全部的pkt---------\n";	break;
 		}
 		*/
-		//不是视频packet,*********************************
-		if (pkt->stream_index != _videoStream && pkt->size!=0){
-			av_packet_unref(pkt);				//释放空间 
-			continue;
+
+		// 不是视频packet
+		if (pkt->stream_index != _videoStream){
+			av_packet_unref(pkt);
+			if (!isLast)				
+				continue;
 		}
 
-		int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);
-		if (re != 0 && pkt->size != 0){
+		re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);
+		if (re != 0){
 			char buf[512] = { 0 };
 			av_strerror(re, buf, sizeof(buf)-1);
 			if(isDebug)		std::cout << "avcodec_send_packet error! :" << buf << std::endl;
-			continue;
+			if (!isLast)
+				continue;
+			else
+				re = 1;
 		}		
 		
-		//开始解码,一次send可能对应多次receive
-		while(true)		
+		// 开始解码,一次send可能对应多次receive
+		while(re>=0)		
 		{					
-			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);			//#define EAGAIN       11						
-			if (re == AVERROR(EAGAIN)){				
-				/*ff_yield();
-				//continue;
-				//av_usleep(100);
-				//Sleep(10000);*/
-				if (0 == avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt))
-					continue;				
-				if (isDebug)	std::cout << "call avcodec_receive_frame return AVERROR(EAGAIN))\n";
-				//avcodec_flush_buffers(_formatCtx->streams[pkt->stream_index]->codec);								
+			re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, frame);
+			if (re == AVERROR(EAGAIN) || re==AVERROR_EOF){				
+				//if (0 == avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt))
+					//continue;
+				if (isDebug)	std::cout << "call avcodec_receive_frame return AVERROR(EAGAIN))\n";										
 				break;
 			}
 			if (re != 0)	break;			
 			sws_scale(img_convert_ctx, (const uint8_t* const*)frame->data, frame->linesize, 0,
-				pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);
-			
-			//写YUV			
+				pCodecCtx->height, pFrameYUV->data, pFrameYUV->linesize);						
 			ofile.write((char*)pFrameYUV->data[0], dstW*dstH);
 			ofile.write((char*)pFrameYUV->data[1], dstW*dstH / 4);
 			ofile.write((char*)pFrameYUV->data[2], dstW*dstH / 4);
 			++numFrame;
-			if (isDebug)	std::cout << numFrame << std::endl;			
-			break;
+			if (isDebug)	std::cout << numFrame << std::endl;						
 		}		
-		av_packet_unref(pkt);	//释放空间
+		av_packet_unref(pkt);
 		Sleep(25);
-		if (err < 0)	break;
-	}	
+
+		if (isLast)	break;
+	}
+
+
 	ofile.clear();
 	avformat_close_input(&_formatCtx);	
 	//av_seek_frame(_formatCtx, _videoStream, _formatCtx->streams[_videoStream]->start_time, 0);
@@ -652,31 +655,29 @@ int EmediaImpl::xyuv(const std::string& path,bool isDebug){
 	return numFrame;
 }
 
-bool EmediaImpl::_read_frame(AVPacket& pkt){
+bool EmediaImpl::_read_frame(AVPacket* pkt){
 	char errorbuf[512] = { 0 };
-	int err = av_read_frame(_formatCtx, &pkt);
-	if (err != 0){
-		av_strerror(err, errorbuf, sizeof(errorbuf));
-		throw ParamExceptionPara(errorbuf);
+	int ret = av_read_frame(_formatCtx, pkt);
+	if (ret != 0){
+		av_strerror(ret, errorbuf, sizeof(errorbuf));
+		return false;
 	}
 	//memset(pkt, 0, sizeof(AVPacket));
 	return true;
 }
 
-//----解码一个packet
-bool EmediaImpl::_decode(AVPacket* pkt, AVFrame& yuv){	
+// 解码一个packet
+bool EmediaImpl::_decode(AVPacket* pkt, AVFrame* yuv){
 	_formatCtx->streams[pkt->stream_index]->codecpar;
 	int re = avcodec_send_packet(_formatCtx->streams[pkt->stream_index]->codec, pkt);	//涉及解码器
-	if (re != 0){		
-		throw DecodeExceptionPara("avcodec_send_packet error");
+	if (re < 0){		
+		return false;
 	}
-	re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, &yuv);
-	if (re != 0){
-		//cout << "error in avcodec_receive_frame\n";
-		//return false;
-		throw DecodeExceptionPara("avcodec_receive_frame error");
+	while (re>=0){
+		re = avcodec_receive_frame(_formatCtx->streams[pkt->stream_index]->codec, yuv);
+		if (re < 0)
+			return false;
 	}
-	return true;
 }
 
 
